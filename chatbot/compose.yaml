@@ -38,7 +38,7 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-not-used}
       MODEL_NAME: ${MODEL_NAME:-Qwen/Qwen3.8-27B-FP8}
-      GUARD_VALIDATOR: ${GUARD_VALIDATOR:-local}
+      GUARD_VALIDATOR: ${GUARD_VALIDATOR:-guardrails}
     depends_on:
       - phoenix
     extra_hosts:
