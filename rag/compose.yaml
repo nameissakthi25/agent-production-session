@@ -28,7 +28,10 @@ services:
     container_name: rag-phoenix
     restart: unless-stopped
     ports:
-      - "6006:6006"
+      # 6007 on the host, not 6006: the chatbot/ stack publishes its own Phoenix
+      # on 6006, and two compose projects cannot bind the same host port. Inside
+      # this network it is still 6006 -- only the host mapping moves.
+      - "6007:6006"
     environment:
       PHOENIX_WORKING_DIR: /data
     volumes:
@@ -72,7 +75,7 @@ services:
       # Inside the network Phoenix is a hostname; in your browser it is
       # localhost. These two differing is the usual tracing-in-Docker mistake.
       PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
-      PHOENIX_PUBLIC_URL: ${PHOENIX_PUBLIC_URL:-http://localhost:6006}
+      PHOENIX_PUBLIC_URL: ${PHOENIX_PUBLIC_URL:-http://localhost:6007}
       PHOENIX_PROJECT_NAME: rag-support-bot
       # host.docker.internal reaches a model server running on the host.
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}

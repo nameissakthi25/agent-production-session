@@ -21,7 +21,7 @@ Four services, and the ordering is the interesting part:
 | Service | Port | |
 |---|---|---|
 | `qdrant` | 6333 | the vector database, on its own volume |
-| `phoenix` | 6006 | traces |
+| `phoenix` | **6007** | traces. 6007 because `chatbot/` already uses 6006 |
 | `ingest` | — | **runs once and exits.** Chunks, embeds, loads |
 | `bot` | 8002 | Chainlit, waits for `ingest` to succeed |
 
@@ -33,7 +33,7 @@ the container, then the bot answering `200 text/html` about 9 seconds later.
 | | |
 |---|---|
 | Chatbot | http://localhost:8002 |
-| Traces | http://localhost:6006 → project `rag-support-bot` |
+| Traces | http://localhost:6007 → project `rag-support-bot` |
 | Qdrant dashboard | http://localhost:6333/dashboard |
 
 **You still need a model.** `OPENAI_BASE_URL` must point at any
