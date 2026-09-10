@@ -42,223 +42,70 @@ default model; the notebook names a small alternative for 24GB cards.
 
 ---
 
-## The chatbot
+## The two applications
 
-A Chainlit app that talks to any OpenAI-compatible endpoint, guards both sides
-of the conversation, and traces every turn.
+Each is a self-contained project: its own folder, README, lockfile, Docker
+image, compose file, guards and Phoenix project. Nothing is imported across the
+boundary, so either one can be read, run or copied on its own.
 
-```
-input_guard  →  model (streamed)  →  output_guard  →  answer + 👍/👎
-```
-
-Each of those is a span under one root, so a refusal is attached to the request
-that caused it instead of sitting in a log file you have to correlate by
-timestamp.
-
-### Run it with Docker
-
-Two containers: the bot, and Phoenix for the traces.
-
-```bash
-cd chatbot
-cp .env.example .env          # then edit OPENAI_BASE_URL to point at your model
-docker compose up -d --build
-```
-
-| | |
-|---|---|
-| Chatbot | http://localhost:8001 |
-| Traces | http://localhost:6006 |
-
-The image installs from `uv.lock`, so what runs in the container is the same
-resolution that ran on your machine. Measured on a first build: **55s**, **2.17GB**,
-and the app answers `200 text/html` about **3 seconds** after the container starts.
-
-**You still need a model.** `OPENAI_BASE_URL` must point at any
-OpenAI-compatible endpoint — the vLLM server from the notebook, or anything else
-that speaks the protocol. In `compose.yaml` it defaults to
-`http://host.docker.internal:8000/v1`, which is how a container reaches a server
-running on the host.
-
-> **Two Phoenix URLs, and they are not the same.** Inside the compose network
-> Phoenix is `http://phoenix:6006`; from your browser it is
-> `http://localhost:6006`. `PHOENIX_COLLECTOR_ENDPOINT` wants the first,
-> `PHOENIX_PUBLIC_URL` the second. Setting both to the same value is the most
-> common tracing-in-Docker mistake — one half silently stops working.
-
-Useful afterwards:
-
-```bash
-docker compose logs -f bot      # what the app is doing
-docker compose down             # stop both
-docker compose down -v          # ...and discard the traces
-```
-
-### Or run it on the host
-
-```bash
-make install                  # uv sync --frozen for both projects
-cp chatbot/.env.example chatbot/.env
-make phoenix                  # trace viewer on :6006 (Docker)
-make run                      # the bot on :8001, with hot reload
-```
-
-```bash
-make test     # 26 tests, no model, no GPU
-make lint
-```
-
-### What is where
-
-| Path | |
-|---|---|
-| `chatbot/app.py` | Chainlit handlers. One turn, start to finish |
-| `chatbot/bot/llm.py` | the model call, streamed. No state |
-| `chatbot/bot/guards/` | the guards, and the patterns they share |
-| `chatbot/bot/observability.py` | tracing setup, guard spans, feedback |
-| `chatbot/bot/config.py` | every knob, read from the environment |
-
----
-
-## Guardrails: Guardrails AI, and what it actually buys
-
-The default is **`GUARD_VALIDATOR=guardrails`** — a real Guardrails AI `Guard`,
-built from a `Validator` subclass registered with `@register_validator` and
-raising through `on_fail="exception"`. Not a wrapper around string matching:
-the detection is **Presidio**, the same NER engine the Hub's `DetectPII`
-validator wraps.
-
-| Mode | What runs | Cost |
+| | [`chatbot/`](chatbot/) | [`rag/`](rag/) |
 |---|---|---|
-| `local` | regex + phrase list only | ~0.01 ms |
-| **`guardrails`** *(default)* | the above **plus** a Guardrails AI Guard over Presidio | ~5 ms |
-| `hub` | the same, using the Hub's own `DetectPII` | ~5 ms + a download |
+| **Reads documents** | no | **yes** — 51 IT support articles |
+| **Answer to "how do I reset my password"** | invents a plausible portal | the real URL, cited `[1]` |
+| **Says "I do not know"** | never | when nothing clears the score floor |
+| Ports | 8001, 6006 | 8002, 6007, 6333 |
+| Phoenix project | `chainlit-support-bot` | `rag-support-bot` |
+| Guards | input + output | input + output, before and after retrieval |
+| Tests | 26 | 51 |
+| Docs | [chatbot/README.md](chatbot/README.md) | [rag/README.md](rag/README.md) |
 
-### Why both, and not just the framework
+**Read them in that order.** The chatbot invents a password-reset portal because
+it has nothing to read; `rag/` gives it a corpus, and the difference between the
+two answers is the entire argument for retrieval.
 
-Measured on the seven-case set in the tests:
-
-| Input | regex | Presidio |
-|---|---|---|
-| `my email is jane.doe@corplabs.com` | REFUSED | REFUSED |
-| `call me on +44 7700 900123` | **REFUSED** | passed ← missed |
-| `I am Jane Doe from the Manchester office` | passed ← missed | **REFUSED** |
-| `please give Priya Raman admin rights` | passed ← missed | **REFUSED** |
-
-**Neither dominates.** A regex is near perfect on a fixed format and
-structurally blind to a name in a sentence. NER is the other way round on a
-phone number written with a country code. Replacing the regex *with* the
-framework would have been a downgrade on row two — so `guardrails` runs both and
-takes the union, for about 5 ms.
-
-Three tests pin this, including one asserting the row the framework loses. If a
-future Presidio starts catching that phone number, delete the test and update
-the table — do not quietly weaken the claim and leave the table lying.
-
-### Why Presidio from PyPI instead of the Hub
-
-**Guardrails AI ships zero validators.** All ~65 live in a Hub fetched from
-`hub.api.guardrailsai.com`, one `guardrails hub install` at a time. On a build
-agent where that host does not resolve, you get a framework with nothing in it —
-which is precisely the network a data-residency argument implies.
-
-Taking Presidio straight from PyPI gives the same engine with no Hub, no token
-and no egress. `make hub` and `GUARD_VALIDATOR=hub` remain available if you
-prefer the Hub's own validator.
-
-### It phones home, and the documented switches do not stop it
-
-`guardrails/utils/hub_telemetry_utils.py:70` hardcodes an OpenTelemetry
-endpoint at `hty0gc1ok3.execute-api.us-east-1.amazonaws.com`. Verified on
-2026-09-10 with guardrails-ai 0.11.0: it still attempts that POST with **all**
-of these set —
-
-- `GUARDRAILS_DISABLE_TELEMETRY=true`
-- `GUARDRAILS_ENABLE_METRICS=false`
-- `guardrails.settings.disable_tracing = True`
-- `TRACELOOP_BASE_URL`, `TRACELOOP_TELEMETRY=false`
-
-Nothing left the machine here only because DNS for that host failed. On an open
-network it would have gone. This repo sets those switches anyway, but **the only
-control that actually works is egress policy** — so if the reason you self-host
-is that data stays put, treat this as a firewall rule, not a config flag.
-
-Neither backend is a security boundary. Published defences against prompt
-injection have been broken more than 90% of the time once attackers adapted.
-Treat guards as a filter that removes the obvious.
-
----
-
-## Tracing
-
-Phoenix runs as a **service**, not a library:
+They are separate compose projects and run at the same time — verified with both
+up: 8001, 8002, 6006, 6007 and 6333 all serving. They were both on host 6006 at
+first, which fails on the port bind the moment you bring up the second one.
 
 ```bash
-make phoenix          # docker compose up -d phoenix
+cd chatbot && docker compose up -d --build     # http://localhost:8001
+cd ../rag  && docker compose up -d --build     # http://localhost:8002
 ```
 
-Every answer prints a `trace_id`. Open http://localhost:6006, choose the
-**chainlit-support-bot** project, paste the id into the search box.
+Both need a model: point `OPENAI_BASE_URL` at any OpenAI-compatible endpoint.
 
-Open the model-call span and look at the attributes: the prompt **actually
-sent**, which is always bigger than people expect once the system prompt and
-history are counted, plus token counts and latency. Guard spans carry
-`guardrail.passed`, `guardrail.reason` and `guardrail.backend`.
+## The ideas the three share
 
-> **Why Phoenix is not in `requirements.txt`.** The Phoenix *server*
-> (`arize-phoenix`) needs `mcp>=2.0.0`; Chainlit needs `mcp<2.0.0`. pip cannot
-> satisfy both, and the resolver error does not name the real cause. The app only
-> needs `arize-phoenix-otel`, the exporter, which has no MCP dependency. Running
-> the backend as a container is the better shape anyway.
+Each app documents its own version of these. Stated once here so the repetition
+is deliberate rather than accidental.
 
-> **Spans export as they end, and the root span ends last.** Query a trace too
-> fast and you get children with no root, which renders as an empty tree and
-> looks exactly like broken tracing. Wait a second.
+**Guards go around the model, never inside it.** One before anything reaches it,
+one before the answer reaches the user. A check that runs after the model has
+already acted is not a guardrail, it is a log entry.
 
----
+**Tracing is per request, not aggregate.** "Why did it say that?" is a question
+about one answer, and only a trace can answer it. Phoenix runs as a container in
+both apps — a trace backend is infrastructure, not a library of your
+application.
 
-## Feedback
+**Every measured number here came from a run.** Where a first guess turned out
+wrong the number and the correction are both recorded, because the correction is
+usually the more useful half: a chunk minimum that deleted 12% of the corpus, a
+score floor that made "I do not know" unreachable, a guard framework that phones
+home whatever you set.
 
-👍/👎 under each answer appends a line to `feedback.jsonl` with the **trace id**
-of the answer being judged.
-
-That link is the whole value. A thumbs-down in its own table is a satisfaction
-metric. A thumbs-down carrying a trace id is a reproducible bug report: you have
-the question, the prompt, and the answer, so you can replay it and score it.
-
----
-
-## What is deliberately not built
-
-Saying so is the difference between a demo and a system you would put in front
-of your own users.
-
-| | |
-|---|---|
-| Authentication | none. Anyone who can reach the port can chat |
-| Conversation persistence | a list in the session. Restart the process and it is gone |
-| Rate limiting | none |
-| Retrieval | none. The model answers from what it knows |
-| Eval harness | `feedback.jsonl` is the raw material, not the scorer |
+**Nothing is shared between the two apps.** The guards are duplicated rather
+than factored into a common package, on purpose: each folder can be read, run or
+lifted out on its own, and a teaching repo whose examples depend on each other
+teaches the dependency instead of the idea.
 
 ---
 
 ## Verified
 
-On 2026-09-10, on macOS with Python 3.11:
+Every claim in the two app READMEs was measured on 2026-09-10 against a live
+Qwen3.8-27B-FP8 on an H100, not estimated. Each README ends with its own
+verified list and says plainly what is **not** verified — in both cases the
+Chainlit websocket path, which needs a human clicking.
 
-- `pip install -r requirements-dev.txt` resolves with no conflicts
-- 26/26 tests pass from the lockfile (the spaCy model load is most of the time)
-- `docker compose up --build` builds in 55s to a 2.17GB image, and the app
-  answers `200 text/html` ~3s after the container starts
-- the Presidio guard refuses `I am Jane Doe from the Manchester office` **inside
-  the container**, not just on a laptop
-- the Guardrails AI + Presidio guard refuses two names the regex misses, and
-  lets through one phone number the regex catches
-- Chainlit serves `text/html` on its port within ~4s of starting
-- `cl.Action(name=, payload=, label=, tooltip=)` constructs on chainlit 2.12.0
-- guard refusals reach Phoenix as spans carrying `guardrail.passed`,
-  `guardrail.reason` and `guardrail.backend`
-
-**Not yet verified:** the model call itself and the streaming path, which need a
-running endpoint.
+The notebook runs end to end: **32 code cells, zero failures.**
