@@ -77,6 +77,10 @@ def main() -> int:
                         help="drop the collection first")
     parser.add_argument("--force", action="store_true",
                         help="re-embed even if the corpus version is unchanged")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="chunk and report, but do not embed or load")
+    parser.add_argument("--show", type=int, default=0, metavar="N",
+                        help="print the first N chunks in full")
     args = parser.parse_args()
 
     corpus = Path(CORPUS_DIR)
@@ -89,6 +93,29 @@ def main() -> int:
           f"{manifest['total_bytes'] / 1024:.0f} KiB)")
     print(f"change  : {describe_change(previous, manifest)}")
 
+    if args.dry_run:
+        # Chunk and report, touching nothing. Useful before an ingest you are
+        # about to do in front of people, and the only way to see what the
+        # chunker decided without loading it.
+        chunks = []
+        for path in sorted(corpus.glob("*.md")):
+            chunks.extend(chunk_document(path.name, path.read_text(encoding="utf-8")))
+        sizes = sorted(len(c.text) for c in chunks)
+        print("\nDRY RUN -- nothing was embedded or loaded")
+        print(f"chunked : {len(chunks)} chunks from {manifest['document_count']} documents")
+        print(f"          {sizes[0]} / {sizes[len(sizes) // 2]} / {sizes[-1]} chars "
+              f"(min / median / max)")
+        per_doc = {}
+        for c in chunks:
+            per_doc[c.doc_id] = per_doc.get(c.doc_id, 0) + 1
+        busiest = sorted(per_doc.items(), key=lambda kv: -kv[1])[:5]
+        print("          most-chunked: "
+              + ", ".join(f"{d} ({n})" for d, n in busiest))
+        for c in chunks[: args.show]:
+            print(f"\n--- chunk {c.ordinal} of {c.doc_id}  [{c.citation}]")
+            print(c.text)
+        return 0
+
     client = QdrantClient(url=QDRANT_URL, timeout=60)
     ensure_collection(client, args.recreate)
 
@@ -96,9 +123,17 @@ def main() -> int:
     if unchanged and not args.force and not args.recreate:
         info = client.get_collection(COLLECTION)
         if info.points_count:
-            print("\nnothing to do -- corpus unchanged and the collection has "
-                  "points. Pass --force to re-embed anyway.")
+            print(f"\nnothing to do -- corpus unchanged and {COLLECTION!r} already "
+                  f"has {info.points_count} points. Pass --force to re-embed anyway.")
             return 0
+        # The manifest says "already indexed" but the collection is empty. That
+        # happens because the manifest lives on a volume and the vectors live in
+        # Qdrant, and the two can be cleaned separately -- `docker compose down`
+        # without -v, a dropped collection, a restored backup. Trusting the
+        # manifest alone here would leave you with an empty index and a script
+        # cheerfully reporting nothing to do.
+        print(f"\nmanifest says {manifest['version']} is already indexed, but "
+              f"{COLLECTION!r} is empty -- indexing anyway.")
 
     # --- chunk ------------------------------------------------------------
     chunks = []

@@ -16,19 +16,12 @@ cp .env.example .env          # then point OPENAI_BASE_URL at your model
 docker compose up -d --build
 ```
 
-Four services, and the ordering is the interesting part:
-
 | Service | Port | |
 |---|---|---|
 | `qdrant` | 6333 | the vector database, on its own volume |
 | `phoenix` | **6007** | traces. 6007 because `chatbot/` already uses 6006 |
-| `ingest` | — | **runs once and exits.** Chunks, embeds, loads |
-| `bot` | 8002 | Chainlit, waits for `ingest` to succeed |
-
-`bot` declares `depends_on: ingest: condition: service_completed_successfully`,
-so a fresh clone comes up with a populated index instead of an empty one that
-answers nothing. Measured on a first run: **256 chunks embedded in 125s** inside
-the container, then the bot answering `200 text/html` about 9 seconds later.
+| `bot` | 8002 | Chainlit |
+| `ingest` | — | **behind a profile. Does not run on `up`** |
 
 | | |
 |---|---|
@@ -36,25 +29,298 @@ the container, then the bot answering `200 text/html` about 9 seconds later.
 | Traces | http://localhost:6007 → project `rag-support-bot` |
 | Qdrant dashboard | http://localhost:6333/dashboard |
 
+**The database starts empty on purpose.** Creating the collection and filling it
+are the two steps worth watching, and a stack that has already done them before
+you look has hidden the interesting part. Walk them through by hand below, or
+skip it with `docker compose --profile ingest up -d`.
+
 **You still need a model.** `OPENAI_BASE_URL` must point at any
 OpenAI-compatible endpoint; `compose.yaml` defaults to
 `http://host.docker.internal:8000/v1`, which is how a container reaches a server
 on the host.
 
-Afterwards:
+---
+
+# Walkthrough
+
+Every command below was run to produce the output shown. Copy them one at a
+time.
+
+## 1 · The database, empty
 
 ```bash
-docker compose logs -f bot
-docker compose run --rm ingest python -m ingest.build_index   # re-index
-docker compose down          # stop
-docker compose down -v       # ...and discard the index and the traces
+docker compose up -d              # qdrant, phoenix, bot -- no ingest
+curl -s localhost:6333/collections | python3 -m json.tool
 ```
 
-## Or run it on the host
+```json
+{ "result": { "collections": [] }, "status": "ok" }
+```
+
+Nothing. Qdrant is running and knows nothing. Open the dashboard at
+http://localhost:6333/dashboard and it agrees.
+
+The bot is up too — ask it something and it tells you the corpus is missing
+rather than pretending.
+
+## 2 · Create the collection by hand
+
+You do not need Python for this. Qdrant is an HTTP API:
+
+```bash
+curl -s -X PUT localhost:6333/collections/it-support \
+  -H 'Content-Type: application/json' \
+  -d '{"vectors": {"size": 384, "distance": "Cosine"}}' | python3 -m json.tool
+```
+
+```json
+{ "result": true, "status": "ok", "time": 0.084711292 }
+```
+
+```bash
+curl -s localhost:6333/collections/it-support | python3 -m json.tool
+```
+
+```
+status      : green
+points      : 0
+vector size : 384
+distance    : Cosine
+```
+
+**Two decisions, both permanent.** `size=384` because that is what
+`bge-small-en-v1.5` emits — a mismatch is rejected at upsert, which is the
+*good* outcome; the bad one is a collection built at the wrong size that
+silently returns nonsense. `distance=Cosine` because these embeddings are
+normalised and cosine is the metric the model was trained for.
+
+Changing either later means re-indexing everything, which is why it is worth
+typing out rather than letting a script decide.
+
+> `ingest` creates the collection itself if it is missing, so in normal use you
+> skip this step. It is here because a collection you created by hand is a
+> collection you understand.
+
+## 3 · See what the chunker will do, before loading anything
+
+```bash
+docker compose run --rm ingest python -m ingest.build_index --dry-run
+```
+
+```
+corpus  : /app/corpus
+version : 46f1b831c55a  (51 documents, 138 KiB)
+change  : first index: 51 documents
+
+DRY RUN -- nothing was embedded or loaded
+chunked : 256 chunks from 51 documents
+          92 / 523 / 1947 chars (min / median / max)
+          most-chunked: device-compliance-requirements.md (6),
+                        laptop-request-and-replacement.md (6),
+                        shared-drive-access-request.md (6)
+```
+
+Add `--show 3` to print the first three chunks in full and see the heading
+prefix that gets embedded with each one.
+
+## 4 · Ingest for real
+
+```bash
+docker compose run --rm ingest
+```
+
+```
+version : 46f1b831c55a  (51 documents, 138 KiB)
+change  : first index: 51 documents
+created collection 'it-support': 384 dims, cosine
+
+chunked : 256 chunks from 51 documents
+embedding with BAAI/bge-small-en-v1.5 on CPU...
+embedded: 256 vectors in 45.2s (6/s), 384 dims
+
+loaded  : 256 points in 'it-support'
+manifest: /app/state/corpus.manifest.json
+```
+
+45 seconds, on CPU, no GPU involved.
+
+## 5 · Look at what landed
+
+```bash
+# how many
+curl -s localhost:6333/collections/it-support \
+  | python3 -c "import json,sys;r=json.load(sys.stdin)['result'];print(r['points_count'],r['status'])"
+```
+
+```
+256 green
+```
+
+```bash
+# one point, payload only -- with_vector:false, or you get 384 floats
+curl -s -X POST localhost:6333/collections/it-support/points/scroll \
+  -H 'Content-Type: application/json' \
+  -d '{"limit":1,"with_payload":true,"with_vector":false}' | python3 -m json.tool
+```
+
+```
+id            : 0214920b-0f51-5747-90ae-e2ad73477983
+doc_id        : device-compliance-requirements.md
+citation      : device-compliance-requirements.md#Personal devices
+heading       : Personal devices
+corpus_version: 46f1b831c55a
+text          : Device compliance requirements — Personal devices ...
+```
+
+Note `corpus_version` on the point itself. That is section 6.
+
+```bash
+# search it directly, no application involved
+curl -s -X POST localhost:6333/collections/it-support/points/query \
+  -H 'Content-Type: application/json' \
+  -d '{"query":[0.1,0.2,"...384 floats..."],"limit":3,"with_payload":true}'
+```
+
+For a real query you need the question embedded first, which is what the app
+does. To search by meaning from the command line:
+
+```bash
+docker compose run --rm ingest python -c "
+from ragbot.retrieval import search
+for h in search('how do I reset my password')[0]:
+    print(f'{h.score:.3f}  {h.citation}')"
+```
+
+```
+0.859  password-reset-self-service.md#Steps
+0.816  password-reset-self-service.md
+0.779  password-reset-self-service.md#If you are already locked out
+0.753  password-reset-self-service.md#Why step 5 matters
+```
+
+## 6 · Versioning
+
+**The corpus is part of your program.** Change a sentence in a policy document
+and the assistant's answer changes — with no code commit, no deploy, and nothing
+in your git log explaining why last week's answer was different.
+
+So the version is a **hash of the content**, not a number someone remembers to
+bump.
+
+### Re-run it unchanged
+
+```bash
+docker compose run --rm ingest
+```
+
+```
+version : 46f1b831c55a  (51 documents, 138 KiB)
+change  : unchanged at 46f1b831c55a
+collection 'it-support' exists with 256 points
+
+nothing to do -- corpus unchanged and 'it-support' already has 256 points.
+Pass --force to re-embed anyway.
+```
+
+No embedding, no writes. Idempotent.
+
+### Now edit a document
+
+Change the password policy from 14 to 16 characters:
+
+```bash
+sed -i '' 's/at least 14 characters/at least 16 characters/' \
+  corpus/password-reset-self-service.md
+
+docker compose run --rm ingest
+```
+
+```
+version : dc9b8cdecaaa  (51 documents, 138 KiB)
+change  : 46f1b831c55a -> dc9b8cdecaaa; edited: password-reset-self-service.md
+
+embedded: 256 vectors in 37.1s (7/s), 384 dims
+loaded  : 256 points in 'it-support'
+```
+
+It names the file. Nobody had to remember to say what changed.
+
+### The version is on every point
+
+```bash
+for v in 46f1b831c55a dc9b8cdecaaa; do
+  printf "%s : " "$v"
+  curl -s -X POST localhost:6333/collections/it-support/points/count \
+    -H 'Content-Type: application/json' \
+    -d "{\"filter\":{\"must\":[{\"key\":\"corpus_version\",\"match\":{\"value\":\"$v\"}}]},\"exact\":true}" \
+    | python3 -c "import json,sys;print(json.load(sys.stdin)['result']['count'],'points')"
+done
+```
+
+```
+46f1b831c55a : 0 points
+dc9b8cdecaaa : 256 points
+```
+
+And the stored text really did change:
+
+```
+password-reset-self-service.md#Steps -> at least 16 characters | corpus dc9b8cdecaaa
+```
+
+Because the version is queryable, an old one can be deleted *after* a new one is
+live — a blue/green swap rather than a gap where the assistant knows nothing.
+
+### Put it back
+
+```bash
+git checkout corpus/password-reset-self-service.md
+docker compose run --rm ingest
+```
+
+```
+change  : dc9b8cdecaaa -> 46f1b831c55a; edited: password-reset-self-service.md
+```
+
+> **Why the corpus is bind-mounted.** `./corpus:/app/corpus:ro` in
+> `compose.yaml`. Without it the image's baked-in copy wins: you edit a
+> document, re-run the ingest, and it reports `unchanged` — which looks like the
+> version hash is broken when in fact the container never saw your edit. Found
+> by doing exactly that.
+
+> **The manifest and the vectors can be cleaned separately.** The manifest lives
+> on a volume, the vectors live in Qdrant. Drop the collection and the manifest
+> still claims that version is indexed. So the skip check tests **both**, and
+> says so:
+>
+> ```
+> manifest says 46f1b831c55a is already indexed, but 'it-support' is empty
+> -- indexing anyway.
+> ```
+>
+> Trusting the manifest alone would leave you with an empty index and a script
+> cheerfully reporting nothing to do.
+
+## 7 · Ask it something
+
+http://localhost:8002
+
+```
+Q: How do I reset my corporate password?
+   → the real URL, cited [1], 4 sources shown with scores, 9.70s
+
+Q: What is the company holiday allowance?
+   → refused in 0.08s. Nothing cleared the score floor, so no model was called
+```
+
+---
+
+## Or run it all on the host
 
 ```bash
 docker compose up -d qdrant phoenix     # the two you do not want to install
 uv sync --frozen --group dev
+uv run python -m ingest.build_index --dry-run
 uv run python -m ingest.build_index
 uv run chainlit run app.py --port 8002 -w
 ```
@@ -64,7 +330,18 @@ uv run pytest tests/ -q                 # 51 tests, no model, no GPU
 uv run python -m ingest.measure_floor   # re-measure the score threshold
 ```
 
+## Cleaning up
+
+```bash
+docker compose down                # stop; the index survives
+docker compose down -v             # ...and discard the index, traces, manifest
+docker compose run --rm ingest python -m ingest.build_index --recreate
+                                   # drop the collection and rebuild it
+```
+
 ---
+
+# Reference
 
 ## 1 · The vector database
 
@@ -128,42 +405,15 @@ piling up duplicates that all match the same query.
 
 ## 3 · The corpus has a version
 
-**The corpus is part of your program.** Change a sentence in a policy document
-and the assistant's answer changes, with no code commit, no deploy, and nothing
-in your git log explaining why last week's answer was different.
+Walked through above. The mechanism: `ingest/version.py` hashes every document's
+content, sorts by filename so the version does not depend on filesystem order,
+and rolls them into one 12-character version. It is stamped onto every point.
 
-So the version is a **hash of the content**, not a number someone remembers to
-bump:
-
-```
-version : 46f1b831c55a  (51 documents, 138 KiB)
-change  : first index: 51 documents
-```
-
-Re-run it unchanged and it does not re-embed:
-
-```
-change  : unchanged at 46f1b831c55a
-nothing to do -- corpus unchanged and the collection has points.
-```
-
-Change one line — the password policy from 14 to 16 characters — and it says
-exactly what happened:
-
-```
-version : dc9b8cdecaaa
-change  : 46f1b831c55a -> dc9b8cdecaaa; edited: password-reset-self-service.md
-```
-
-The version is stamped onto **every point**, so an answer can name the corpus it
-was drawn from, and an old version can be deleted after a new one is live —
-a blue/green swap rather than a gap where the assistant knows nothing.
-
-`corpus.manifest.json` is committed on purpose: a diff on it is a diff on the
+`corpus.manifest.json` is committed on purpose — a diff on it is a diff on the
 assistant's knowledge.
 
 **Known simplification:** a one-document edit re-embeds all 256 chunks. At this
-size that is 50 seconds and not worth optimising; at 50,000 documents you would
+size that is 45 seconds and not worth optimising; at 50,000 documents you would
 embed only the chunks whose document hash changed.
 
 ## 4 · Retrieval, and the threshold that decides honesty

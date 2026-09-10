@@ -45,6 +45,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: rag-ingest
+    # A profile, so a plain `docker compose up` does NOT silently ingest. The
+    # database starts empty on purpose: creating the collection and filling it
+    # are the two steps worth watching, and a stack that has already done them
+    # before you look has hidden the interesting part.
+    #   docker compose run --rm ingest      (works regardless of profile)
+    #   docker compose --profile ingest up  (if you want it automatic)
+    profiles: ["ingest"]
     command: ["python", "-m", "ingest.build_index"]
     environment:
       QDRANT_URL: http://qdrant:6333
@@ -55,6 +62,13 @@ services:
     volumes:
       - fastembed-cache:/app/.cache/fastembed
       - ingest-state:/app/state
+      # The corpus is bind-mounted over the copy baked into the image, so
+      # editing a document on your machine changes what the next ingest sees.
+      # Without this the image's copy wins, you edit a file, re-run the ingest,
+      # and it reports "unchanged" -- which looks like the version hash is
+      # broken when in fact the container never saw your edit.
+      # Read-only: ingest reads the corpus, it never writes to it.
+      - ./corpus:/app/corpus:ro
     depends_on:
       qdrant:
         condition: service_healthy
@@ -90,8 +104,6 @@ services:
     depends_on:
       qdrant:
         condition: service_healthy
-      ingest:
-        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
