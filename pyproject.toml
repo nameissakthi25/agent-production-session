@@ -1,0 +1,57 @@
+[project]
+name = "serving-from-scratch"
+version = "0.1.0"
+description = "Environment for serving-from-scratch.ipynb: vLLM, tracing, guards"
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    # --- section 1: finding a model --------------------------------------
+    "huggingface-hub>=1.31.0",
+    "ipywidgets>=8.1.0",          # without it tqdm warns "IProgress not found"
+
+    # --- section 2: serving it -------------------------------------------
+    "vllm>=0.29.0",
+    "transformers>=5.17.0",
+
+    # --- section 4: tracing ----------------------------------------------
+    #
+    # The EXPORTER only. Installing `arize-phoenix` (the server) alongside vLLM
+    # resolves to a version whose own pydantic-ai then fails to import:
+    #   ImportError: cannot import name 'MCPServerStreamableHTTP'
+    # and because phoenix/__init__.py imports the server, even
+    # `from phoenix.otel import register` breaks. Measured on an H100 box.
+    # Phoenix runs as a container; the notebook says so.
+    "arize-phoenix-otel>=0.17.1",
+    "openinference-instrumentation-openai>=0.1.60",
+
+    # --- section 5: guardrails -------------------------------------------
+    #
+    # Guardrails AI ships zero validators -- all ~65 live in a Hub fetched from
+    # hub.api.guardrailsai.com. Where that host does not resolve you get an
+    # empty framework, so the notebook registers its own validators over two
+    # engines from PyPI instead.
+    "guardrails-ai==0.11.0",
+    "presidio-analyzer>=2.2.364",
+    "en-core-web-sm",             # Presidio needs a spaCy model, and fetches none
+
+    # --- running the notebook itself -------------------------------------
+    "jupyterlab>=4.6.0",
+    "ipykernel>=7.0.0",
+]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[tool.uv]
+package = false
+
+# vLLM publishes Linux/CUDA wheels only, so a universal lock cannot resolve.
+# Pinning the lock to Linux is honest about where this notebook runs: it wants a
+# GPU, and the GPU is not in your laptop.
+environments = ["sys_platform == 'linux'"]
+
+# chatbot/ is a SEPARATE uv project, deliberately not a workspace member:
+# chainlit needs mcp<2.0.0 and the Phoenix server needs mcp>=2.0.0, so one
+# lockfile covering both cannot exist. Two locks, two venvs, no conflict.
+[tool.uv.workspace]
+exclude = ["chatbot"]

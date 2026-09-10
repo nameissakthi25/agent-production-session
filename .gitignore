@@ -8,3 +8,5 @@ feedback.jsonl
 **/.chainlit/.langchain.db
 .ruff_cache/
 .pytest_cache/
+
+# uv.lock IS committed on purpose -- it is the point of using uv.

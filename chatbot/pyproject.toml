@@ -1,0 +1,62 @@
+[project]
+name = "chatbot"
+version = "0.1.0"
+description = "Chainlit chat over any OpenAI-compatible endpoint, with guards and tracing"
+requires-python = ">=3.11,<3.13"
+
+dependencies = [
+    "chainlit==2.12.0",
+
+    # 2.x, NOT 3.x, on purpose. guardrails-ai declares openai<3.0.0, so pinning
+    # the newest openai makes the resolver refuse the pair. Everything this app
+    # uses is stable across both majors, so taking 2.x costs nothing and keeps
+    # one lockfile that actually resolves.
+    "openai>=2.54.0,<3",
+
+    # The trace EXPORTER only. `arize-phoenix` (the server) pulls
+    # fastmcp-slim>=4 -> mcp>=2.0.0, and chainlit needs mcp<2.0.0; the resolver
+    # cannot satisfy both and its error does not name the cause. Phoenix runs
+    # as a container instead -- see compose.yaml.
+    "arize-phoenix-otel>=0.17.1",
+    "openinference-instrumentation-openai>=0.1.60",
+
+    # The guard framework, and the engine that makes it more than a regex.
+    # Presidio is what the Hub's DetectPII validator wraps; taking it from PyPI
+    # means the guard works with no Hub, no token and no egress.
+    "guardrails-ai==0.11.0",
+    "presidio-analyzer>=2.2.364",
+    "en-core-web-sm",
+
+    "python-dotenv>=1.2.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.6",
+]
+
+# Presidio needs a spaCy model and does not fetch one itself. It is not on PyPI,
+# so it is declared as a direct URL. The small model is ~12MB; en_core_web_lg
+# scores better on PERSON at ~560MB -- measure on your own text first.
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[tool.uv]
+# This project is not part of a workspace with the notebook environment at the
+# repo root: vllm and chainlit cannot resolve together, so they are two
+# separate locks on purpose.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+# `package = false` means bot/ is not installed into the venv, so pytest needs
+# the project root on sys.path. Chainlit does not: it runs from this directory,
+# which is already on sys.path.
+[tool.pytest.ini_options]
+pythonpath = ["."]

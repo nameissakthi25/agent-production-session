@@ -8,7 +8,7 @@ that?" is a question about one request, and only a trace can answer it.
 import contextlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from opentelemetry import trace
 
@@ -115,7 +115,7 @@ def record_feedback(trace_id: str | None, helpful: bool, question: str = "") -> 
     readable by whatever scores your evals later.
     """
     row = {
-        "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "at": datetime.now(UTC).isoformat(timespec="seconds"),
         "trace_id": trace_id,
         "helpful": helpful,
         "question": question,
