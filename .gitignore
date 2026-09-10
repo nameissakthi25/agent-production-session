@@ -3,7 +3,8 @@ __pycache__/
 *.pyc
 .env
 feedback.jsonl
-.chainlit/translations/
-.files/
+**/.chainlit/translations/
+**/.files/
+**/.chainlit/.langchain.db
 .ruff_cache/
 .pytest_cache/
