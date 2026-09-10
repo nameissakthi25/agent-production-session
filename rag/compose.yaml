@@ -1,0 +1,99 @@
+# Four services, and the order matters: Qdrant has to exist before the index is
+# built, and the index has to exist before the bot can answer anything.
+
+services:
+  # The vector database. Its own container, its own volume -- the corpus lives
+  # here, not in the application image, which is why re-indexing does not mean
+  # rebuilding the bot.
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    container_name: rag-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"        # REST + the built-in dashboard at /dashboard
+      - "6334:6334"        # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      # Qdrant's image has no curl and no shell utilities worth relying on, so
+      # bash's own /dev/tcp is the portable check. It answers "is the port
+      # open", which is what depends_on actually needs to know.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: rag-phoenix
+    restart: unless-stopped
+    ports:
+      - "6006:6006"
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix-data:/data
+
+  # Runs once, then exits. `docker compose up` waits for it because the bot
+  # depends on it completing successfully -- so a fresh clone comes up with a
+  # populated index instead of an empty one that answers nothing.
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-ingest
+    command: ["python", "-m", "ingest.build_index"]
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-it-support}
+      # The manifest is written here so a re-run can tell what changed. Shared
+      # with the bot's volume so both agree on which corpus version is live.
+      MANIFEST_PATH: /app/state/corpus.manifest.json
+    volumes:
+      - fastembed-cache:/app/.cache/fastembed
+      - ingest-state:/app/state
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: "no"
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-bot
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-it-support}
+      MANIFEST_PATH: /app/state/corpus.manifest.json
+      # Inside the network Phoenix is a hostname; in your browser it is
+      # localhost. These two differing is the usual tracing-in-Docker mistake.
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+      PHOENIX_PUBLIC_URL: ${PHOENIX_PUBLIC_URL:-http://localhost:6006}
+      PHOENIX_PROJECT_NAME: rag-support-bot
+      # host.docker.internal reaches a model server running on the host.
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-used}
+      MODEL_NAME: ${MODEL_NAME:-qwen3}
+      GUARD_VALIDATOR: ${GUARD_VALIDATOR:-guardrails}
+      TOP_K: ${TOP_K:-4}
+      SCORE_FLOOR: ${SCORE_FLOOR:-0.65}
+    volumes:
+      - fastembed-cache:/app/.cache/fastembed
+      - ingest-state:/app/state
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ingest:
+        condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  qdrant-data:
+  phoenix-data:
+  fastembed-cache:
+  ingest-state:

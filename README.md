@@ -6,8 +6,13 @@ into something you could defend: **guardrails**, **tracing**, and a **UI**.
 ```
 agent-production-session/
 ├── serving-from-scratch.ipynb   ← start here: empty machine → traced, guarded endpoint
-└── chatbot/                     ← the same ideas as a running app
+├── chatbot/                     ← the same ideas as a running app, no documents
+└── rag/                         ← ...and with a corpus it can actually read
 ```
+
+Read them in that order. The chatbot invents a plausible password-reset portal
+because it has nothing to read; `rag/` gives it 51 real IT support articles, and
+the difference between the two answers is the entire argument for retrieval.
 
 ---
 
