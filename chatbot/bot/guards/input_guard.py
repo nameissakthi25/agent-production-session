@@ -1,15 +1,25 @@
 """Runs before anything reaches the model.
 
-Two backends, same signature, chosen by GUARD_VALIDATOR:
+Three backends, one signature, chosen by GUARD_VALIDATOR:
 
-    local   the patterns in patterns.py. No network, no Hub, ~0.1 ms.
-    hub     Guardrails AI with DetectPII from the Hub. Finds names and
-            addresses a regex cannot, costs 10-100x more, and has to be
-            installed separately.
+    local        the patterns in patterns.py. ~0.01 ms, no network.
+    guardrails   a Guardrails AI Guard wrapping Presidio, PLUS the patterns.
+                 ~5 ms. The default.
+    hub          the same, but with the Hub's own DetectPII validator.
 
-The local backend is the default because it always works. The Hub backend is
-worth switching on once you have measured what the local one misses -- and the
-honest answer is usually "most of it", because names are not a pattern.
+MEASURED, and the reason "guardrails" runs both rather than replacing one with
+the other:
+
+    input                                     regex     presidio
+    my email is jane.doe@corplabs.com         REFUSED   REFUSED
+    call me on +44 7700 900123                REFUSED   pass      <-- missed
+    I am Jane Doe from the Manchester office  pass      REFUSED   <-- missed
+    please give Priya Raman admin rights      pass      REFUSED   <-- missed
+
+Neither dominates. A regex is near perfect on a fixed format and structurally
+blind to a name; NER is the other way round on a phone number written with a
+country code. Running both costs about 5 ms and catches the union -- and
+"we replaced our regex with a framework" would have been a downgrade on row two.
 """
 
 from bot.config import GUARD_VALIDATOR, MAX_INPUT_CHARS
@@ -18,101 +28,71 @@ from bot.guards.patterns import find_injection, find_pii
 
 GUARD_NAME = "input_guard"
 
+# Built once, lazily. Loading the NLP model takes a second or two, and a run
+# that never uses this backend should not pay for it.
+_framework_guard = None
 
-def _check_local(message: str) -> None:
-    """Length, injection phrases, PII formats. In that order, cheapest first."""
+
+def _check_cheap(message: str, backend: str) -> None:
+    """Length, injection phrases, PII formats. Cheapest first, always run.
+
+    The framework has no opinion about length or injection phrases, so routing
+    those through it would be ceremony. These stay here whichever backend is
+    selected.
+    """
     if len(message) > MAX_INPUT_CHARS:
         raise GuardRejected(
             GUARD_NAME,
             f"input is {len(message)} characters, over the "
             f"{MAX_INPUT_CHARS} character limit",
+            backend,
         )
 
     phrase = find_injection(message)
     if phrase is not None:
         raise GuardRejected(
-            GUARD_NAME, f"input contains the injection phrase {phrase!r}"
+            GUARD_NAME, f"input contains the injection phrase {phrase!r}", backend
         )
 
     label = find_pii(message)
     if label is not None:
-        raise GuardRejected(GUARD_NAME, f"input matched the {label} pattern")
+        raise GuardRejected(GUARD_NAME, f"input matched the {label} pattern", backend)
 
 
-# The Hub guard is built once, lazily, because importing guardrails is slow and
-# most runs never need it.
-_hub_guard = None
+def _check_framework(message: str, backend: str) -> None:
+    """Then the Guard, for the categories a pattern cannot express."""
+    global _framework_guard
 
+    if _framework_guard is None:
+        from bot.guards import framework
 
-def _build_hub_guard():
-    """Guardrails AI with DetectPII. Raises a useful error if it is missing."""
-    # Both of these are read at import time by the library, so they have to be
-    # set before it is imported. Out of the box Guardrails AI POSTs telemetry
-    # to a hardcoded us-east-1 endpoint; if your reason for self-hosting is
-    # data residency, that is not a footnote.
-    import os
-
-    os.environ.setdefault("GUARDRAILS_DISABLE_TELEMETRY", "true")
-    os.environ.setdefault("GUARDRAILS_ENABLE_METRICS", "false")
-
-    try:
-        from guardrails import Guard
-        from guardrails.hub import DetectPII
-    except ImportError as error:
-        raise RuntimeError(
-            "GUARD_VALIDATOR=hub needs Guardrails AI and the DetectPII "
-            "validator:\n"
-            "  pip install guardrails-ai\n"
-            "  guardrails hub install hub://guardrails/detect_pii"
-        ) from error
-
-    return Guard().use(DetectPII(pii_entities="pii", on_fail="exception"))
-
-
-def _check_hub(message: str) -> None:
-    """Length and injection stay local; PII goes to Presidio via the Hub.
-
-    The framework has no opinion about injection phrases or length, so running
-    those through it would be ceremony. Only the part it is genuinely better at
-    is delegated.
-    """
-    global _hub_guard
-
-    if len(message) > MAX_INPUT_CHARS:
-        raise GuardRejected(
-            GUARD_NAME,
-            f"input is {len(message)} characters, over the "
-            f"{MAX_INPUT_CHARS} character limit",
-            backend="hub",
+        _framework_guard = (
+            framework.build_hub_guard()
+            if GUARD_VALIDATOR == "hub"
+            else framework.build_guard()
         )
 
-    phrase = find_injection(message)
-    if phrase is not None:
-        raise GuardRejected(
-            GUARD_NAME, f"input contains the injection phrase {phrase!r}", backend="hub"
-        )
-
-    if _hub_guard is None:
-        _hub_guard = _build_hub_guard()
-
     try:
-        _hub_guard.validate(message)
-    except Exception as error:  # the library raises its own exception types
-        # The reason is only available as the stringified exception, which is
-        # why the hub path costs more on the reject branch than on the pass one.
-        reason = str(error).strip().splitlines()[0][:200]
-        raise GuardRejected(GUARD_NAME, f"DetectPII refused: {reason}", "hub") from error
+        _framework_guard.validate(message)
+    except Exception as error:
+        # The reason is only recoverable as the stringified exception, which is
+        # why the reject path costs more than the pass path in this library.
+        reason = str(error).strip().splitlines()[-1][:200]
+        raise GuardRejected(GUARD_NAME, reason, backend) from error
 
 
 def check_input(message: str) -> str:
     """Return the message unchanged, or raise GuardRejected saying why."""
-    if GUARD_VALIDATOR == "hub":
-        _check_hub(message)
-    else:
-        _check_local(message)
+    backend = backend_name()
+    _check_cheap(message, backend)
+    if GUARD_VALIDATOR in {"guardrails", "hub"}:
+        _check_framework(message, backend)
     return message
 
 
 def backend_name() -> str:
     """Which backend is live, for the span attribute."""
-    return "guardrails-ai/hub" if GUARD_VALIDATOR == "hub" else "local"
+    return {
+        "guardrails": "guardrails-ai/presidio",
+        "hub": "guardrails-ai/hub",
+    }.get(GUARD_VALIDATOR, "local")

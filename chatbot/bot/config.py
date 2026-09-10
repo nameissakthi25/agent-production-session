@@ -39,10 +39,17 @@ TRACING_ENABLED = os.environ.get("TRACING_ENABLED", "true").lower() != "false"
 
 # --- guards ----------------------------------------------------------------
 #
-# "local"  validators defined in this repo. No network, no Hub, always works.
-# "hub"    Guardrails AI Hub validators: DetectPII and NSFWText. Better
-#          coverage, but each is a separate download -- see README.
-GUARD_VALIDATOR = os.environ.get("GUARD_VALIDATOR", "local")
+# "local"       regex and a phrase list, defined in this repo. Microseconds,
+#               no network, always works. Blind to anything without a format.
+# "guardrails"  Guardrails AI Guard wrapping Presidio (NER). Catches names and
+#               places a regex cannot. Installs from PyPI, needs no Hub.
+# "hub"         Guardrails AI with the Hub's own DetectPII. Same engine as
+#               "guardrails", but fetched from hub.api.guardrailsai.com.
+#
+# They are COMPLEMENTARY, not a ladder -- measured, the regex catches phone
+# numbers Presidio misses, and Presidio catches names the regex cannot see.
+# "guardrails" runs both, which is why it is the default.
+GUARD_VALIDATOR = os.environ.get("GUARD_VALIDATOR", "guardrails")
 MAX_INPUT_CHARS = int(os.environ.get("MAX_INPUT_CHARS", "4000"))
 
 # Where thumbs go. One JSON object per line, appended.

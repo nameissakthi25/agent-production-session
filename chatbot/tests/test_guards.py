@@ -98,4 +98,74 @@ def test_rejection_carries_guard_reason_and_backend():
     rejection = caught.value
     assert rejection.guard == "input_guard"
     assert rejection.reason
-    assert rejection.backend in {"local", "hub"}
+    assert rejection.backend in {"local", "guardrails-ai/presidio", "guardrails-ai/hub"}
+
+
+# --- the framework backend -------------------------------------------------
+#
+# Skipped unless Presidio is installed, so the fast suite stays fast and still
+# runs on a machine that only wants the regex backend.
+
+import importlib  # noqa: E402
+
+presidio = pytest.mark.skipif(
+    importlib.util.find_spec("presidio_analyzer") is None,
+    reason="presidio-analyzer not installed",
+)
+
+
+@presidio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I am Jane Doe from the Manchester office and I need VPN access",
+        "Please give Priya Raman admin rights on the finance share",
+    ],
+)
+def test_framework_catches_names_the_regex_cannot(text):
+    """The whole justification for the dependency, asserted rather than claimed."""
+    from bot.guards.framework import build_guard
+    from bot.guards.patterns import find_pii
+
+    assert find_pii(text) is None, "regex was expected to miss this"
+    # The library raises its own exception type, and which one is not part of
+    # its public contract -- so assert that it refused, via check_input, which
+    # normalises whatever came out into our own GuardRejected.
+    from bot.guards.input_guard import _check_framework
+
+    with pytest.raises(GuardRejected):
+        _check_framework(text, "guardrails-ai/presidio")
+    build_guard()  # the Guard itself still builds
+
+
+@presidio
+def test_regex_catches_a_phone_the_framework_misses():
+    """The row that stops this being a story about the framework winning.
+
+    If a future Presidio version starts catching this, delete the test and
+    update the comparison table in input_guard.py -- do not weaken the claim
+    and leave the table saying something that is no longer true.
+    """
+    from bot.guards.framework import build_guard
+    from bot.guards.patterns import find_pii
+
+    text = "Call me on +44 7700 900123"
+    assert find_pii(text) == "phone number"
+    build_guard().validate(text)      # framework lets it through
+
+
+@presidio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "How do I reset my password?",
+        "The server at 10.0.0.2 is refusing connections on port 8000.",
+        "Ticket INC-VDA-0001 is still open.",
+    ],
+)
+def test_framework_does_not_fire_on_ordinary_it_text(text):
+    """A guard with a high false-positive rate gets switched off by whoever
+    has to live with it."""
+    from bot.guards.framework import build_guard
+
+    build_guard().validate(text)

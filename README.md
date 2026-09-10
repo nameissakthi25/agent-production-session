@@ -63,7 +63,7 @@ You also need a model. Point `OPENAI_BASE_URL` at whatever you have — a vLLM
 server from the notebook, or any other OpenAI-compatible endpoint.
 
 ```bash
-make test     # 20 tests, no model, no GPU, ~0.01s
+make test     # 26 tests, no model, no GPU
 make lint
 ```
 
@@ -79,42 +79,68 @@ make lint
 
 ---
 
-## Guardrails: two backends
+## Guardrails: Guardrails AI, and what it actually buys
 
-Set `GUARD_VALIDATOR` in `chatbot/.env`.
+The default is **`GUARD_VALIDATOR=guardrails`** — a real Guardrails AI `Guard`,
+built from a `Validator` subclass registered with `@register_validator` and
+raising through `on_fail="exception"`. Not a wrapper around string matching:
+the detection is **Presidio**, the same NER engine the Hub's `DetectPII`
+validator wraps.
 
-**`local` (default)** — the regex and phrase rules in `bot/guards/patterns.py`.
-No network, no downloads, microseconds. It always works, which is why it is the
-default.
+| Mode | What runs | Cost |
+|---|---|---|
+| `local` | regex + phrase list only | ~0.01 ms |
+| **`guardrails`** *(default)* | the above **plus** a Guardrails AI Guard over Presidio | ~5 ms |
+| `hub` | the same, using the Hub's own `DetectPII` | ~5 ms + a download |
 
-**`hub`** — Guardrails AI with `DetectPII` and `NSFWText` from the Hub:
+### Why both, and not just the framework
 
-```bash
-make hub          # two separate downloads, a few hundred MB
-```
+Measured on the seven-case set in the tests:
 
-Then set `GUARD_VALIDATOR=hub`.
+| Input | regex | Presidio |
+|---|---|---|
+| `my email is jane.doe@corplabs.com` | REFUSED | REFUSED |
+| `call me on +44 7700 900123` | **REFUSED** | passed ← missed |
+| `I am Jane Doe from the Manchester office` | passed ← missed | **REFUSED** |
+| `please give Priya Raman admin rights` | passed ← missed | **REFUSED** |
 
-### Which one to use
+**Neither dominates.** A regex is near perfect on a fixed format and
+structurally blind to a name in a sentence. NER is the other way round on a
+phone number written with a country code. Replacing the regex *with* the
+framework would have been a downgrade on row two — so `guardrails` runs both and
+takes the union, for about 5 ms.
 
-The honest comparison is not "framework good, regex bad". A regex is near
-perfect on a fixed format — an email, a card number — and structurally blind to
-anything without a format. *"I am Jane Doe from the Manchester office"* has no
-pattern in it at all, and only named-entity recognition will catch it. **That**
-is what the Hub validator buys, and it is worth measuring on your own data
-before deciding it is worth the dependency.
+Three tests pin this, including one asserting the row the framework loses. If a
+future Presidio starts catching that phone number, delete the test and update
+the table — do not quietly weaken the claim and leave the table lying.
 
-Three things to know before you switch it on:
+### Why Presidio from PyPI instead of the Hub
 
-- **Guardrails AI ships zero validators.** All of them live in a Hub fetched over
-  the network, one install at a time. Air-gapped, you get an empty framework.
-- **It phones home by default**, posting telemetry to a hardcoded us-east-1
-  endpoint. If your reason for self-hosting is data residency, that is not a
-  footnote — `bot/guards/input_guard.py` disables it *before* the import, since
-  both switches are read at import time.
-- **It declares `openai<3.0.0`.** This repo pins `openai==2.54.0` so a single
-  requirements file resolves cleanly. Pinning openai 3.x instead means pip
-  refuses the pair, or a loose venv silently downgrades one of them.
+**Guardrails AI ships zero validators.** All ~65 live in a Hub fetched from
+`hub.api.guardrailsai.com`, one `guardrails hub install` at a time. On a build
+agent where that host does not resolve, you get a framework with nothing in it —
+which is precisely the network a data-residency argument implies.
+
+Taking Presidio straight from PyPI gives the same engine with no Hub, no token
+and no egress. `make hub` and `GUARD_VALIDATOR=hub` remain available if you
+prefer the Hub's own validator.
+
+### It phones home, and the documented switches do not stop it
+
+`guardrails/utils/hub_telemetry_utils.py:70` hardcodes an OpenTelemetry
+endpoint at `hty0gc1ok3.execute-api.us-east-1.amazonaws.com`. Verified on
+2026-09-10 with guardrails-ai 0.11.0: it still attempts that POST with **all**
+of these set —
+
+- `GUARDRAILS_DISABLE_TELEMETRY=true`
+- `GUARDRAILS_ENABLE_METRICS=false`
+- `guardrails.settings.disable_tracing = True`
+- `TRACELOOP_BASE_URL`, `TRACELOOP_TELEMETRY=false`
+
+Nothing left the machine here only because DNS for that host failed. On an open
+network it would have gone. This repo sets those switches anyway, but **the only
+control that actually works is egress policy** — so if the reason you self-host
+is that data stays put, treat this as a firewall rule, not a config flag.
 
 Neither backend is a security boundary. Published defences against prompt
 injection have been broken more than 90% of the time once attackers adapted.
@@ -181,7 +207,9 @@ of your own users.
 On 2026-09-10, on macOS with Python 3.11:
 
 - `pip install -r requirements-dev.txt` resolves with no conflicts
-- 20/20 tests pass in ~0.01s
+- 26/26 tests pass in ~2.9s (the NLP model load is most of it)
+- the Guardrails AI + Presidio guard refuses two names the regex misses, and
+  lets through one phone number the regex catches
 - Chainlit serves `text/html` on its port within ~4s of starting
 - `cl.Action(name=, payload=, label=, tooltip=)` constructs on chainlit 2.12.0
 - guard refusals reach Phoenix as spans carrying `guardrail.passed`,
