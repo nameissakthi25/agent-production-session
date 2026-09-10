@@ -72,9 +72,9 @@ Two checks, in this order, before **every single** tool call:
 
 ```python
 TOOL_ALLOWLIST = {
-    "retriever":   ["search_kb"],
-    "tool_agent":  ["lookup_ticket", "check_service_status"],
-    "synthesizer": [],          # empty on purpose
+    "retriever": ["search_kb"],
+    "tool_agent": ["lookup_ticket", "check_service_status"],
+    "synthesizer": [],  # empty on purpose
 }
 ```
 

@@ -46,7 +46,7 @@ def build_manifest(corpus_dir: Path) -> dict:
         rolling.update(documents[name].encode())
 
     return {
-        "version": rolling.hexdigest()[:12],   # short enough to say out loud
+        "version": rolling.hexdigest()[:12],  # short enough to say out loud
         "document_count": len(documents),
         "total_bytes": sum(p.stat().st_size for p in files),
         "documents": documents,

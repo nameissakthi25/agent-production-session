@@ -68,11 +68,13 @@ async def on_message(message: cl.Message) -> None:
                 check_input(question)
         except GuardRejected as rejection:
             root.set_attribute("output.refused_by", rejection.guard)
-            await cl.Message(content=(
-                f"🛑 **Refused by the {rejection.guard}.**\n\n{rejection.reason}\n\n"
-                f"_No worker ran and no tool was called._"
-                + (f"\n\n`trace {trace_id}`" if trace_id else "")
-            )).send()
+            await cl.Message(
+                content=(
+                    f"🛑 **Refused by the {rejection.guard}.**\n\n{rejection.reason}\n\n"
+                    f"_No worker ran and no tool was called._"
+                    + (f"\n\n`trace {trace_id}`" if trace_id else "")
+                )
+            ).send()
             return
 
         # The graph is synchronous and can take several seconds across three
@@ -95,9 +97,9 @@ async def on_message(message: cl.Message) -> None:
                 check_output(result.answer)
         except GuardRejected as rejection:
             root.set_attribute("output.refused_by", rejection.guard)
-            await cl.Message(content=(
-                f"🛑 **Answer withheld by the {rejection.guard}.**\n\n{rejection.reason}"
-            )).send()
+            await cl.Message(
+                content=(f"🛑 **Answer withheld by the {rejection.guard}.**\n\n{rejection.reason}")
+            ).send()
             return
 
         root.set_attribute("output.value", result.answer)
@@ -131,8 +133,11 @@ async def _show_run(result) -> None:
     if result.citations:
         body += ["", "**Sources:** " + ", ".join(f"`{c}`" for c in dict.fromkeys(result.citations))]
     if result.refusals:
-        body += ["", "_A refused tool call does not end the run: the refusal goes "
-                 "back to the agent as the tool's result, and it explains itself._"]
+        body += [
+            "",
+            "_A refused tool call does not end the run: the refusal goes "
+            "back to the agent as the tool's result, and it explains itself._",
+        ]
     await cl.Message(content="\n".join(body), author="agents").send()
 
 
@@ -149,10 +154,18 @@ def _thumbs(trace_id, question, result) -> list[cl.Action]:
         "refusals": result.refusals,
     }
     return [
-        cl.Action(name="helpful", payload={**payload, "helpful": True},
-                  label="👍", tooltip="This answer was helpful"),
-        cl.Action(name="not_helpful", payload={**payload, "helpful": False},
-                  label="👎", tooltip="This answer was not helpful"),
+        cl.Action(
+            name="helpful",
+            payload={**payload, "helpful": True},
+            label="👍",
+            tooltip="This answer was helpful",
+        ),
+        cl.Action(
+            name="not_helpful",
+            payload={**payload, "helpful": False},
+            label="👎",
+            tooltip="This answer was not helpful",
+        ),
     ]
 
 
@@ -181,10 +194,13 @@ async def _record(action: cl.Action) -> None:
         },
     )
     await cl.Message(
-        content=("Recorded: 👍 helpful" if helpful else
-                 f"Recorded: 👎 not helpful — saved with the route "
-                 f"(`{payload.get('route')}`) and the sources, so it is "
-                 f"replayable as an eval case."),
+        content=(
+            "Recorded: 👍 helpful"
+            if helpful
+            else f"Recorded: 👎 not helpful — saved with the route "
+            f"(`{payload.get('route')}`) and the sources, so it is "
+            f"replayable as an eval case."
+        ),
         author="feedback",
     ).send()
     await action.remove()

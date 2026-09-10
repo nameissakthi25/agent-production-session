@@ -91,16 +91,14 @@ def main() -> int:
 
     print(f"\nlowest in-corpus     {lowest_in:.3f}")
     print(f"highest out-of-corpus {highest_out:.3f}")
-    print(f"gap                   {gap:+.3f}"
-          f"  {'separable' if gap > 0 else 'OVERLAPPING'}")
+    print(f"gap                   {gap:+.3f}  {'separable' if gap > 0 else 'OVERLAPPING'}")
 
     print(f"\n{'floor':>6}  {'answers':>18}  {'wrongly answers':>18}")
     for floor in CANDIDATE_FLOORS:
         answered = sum(1 for s, _ in ins if s >= floor)
         wrong = sum(1 for s, _ in outs if s >= floor)
         marker = "  <- current" if abs(floor - SCORE_FLOOR) < 1e-9 else ""
-        print(f"{floor:>6.2f}  {answered:>10}/{len(ins):<7}  "
-              f"{wrong:>10}/{len(outs):<7}{marker}")
+        print(f"{floor:>6.2f}  {answered:>10}/{len(ins):<7}  {wrong:>10}/{len(outs):<7}{marker}")
 
     if gap < 0.05:
         print(

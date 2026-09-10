@@ -44,10 +44,10 @@ PII_PATTERNS: dict[str, re.Pattern[str]] = {
     "national insurance number": re.compile(r"\b[A-CEGHJ-PR-TW-Z]{2}\d{6}[A-D]\b", re.I),
     # Loose on purpose: international prefixes, spaces, dashes and brackets.
     "phone number": re.compile(
-        r"(?<!\w)"                      # not mid-word
-        r"(?:\+\d{1,3}[\s-]?)?"         # optional country code
-        r"(?:\(\d{2,4}\)[\s-]?)?"       # optional bracketed area code
-        r"\d{3,4}[\s-]?\d{3,4}"         # the number itself
+        r"(?<!\w)"  # not mid-word
+        r"(?:\+\d{1,3}[\s-]?)?"  # optional country code
+        r"(?:\(\d{2,4}\)[\s-]?)?"  # optional bracketed area code
+        r"\d{3,4}[\s-]?\d{3,4}"  # the number itself
         r"(?!\w)"
     ),
 }

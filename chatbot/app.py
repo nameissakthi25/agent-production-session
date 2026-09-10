@@ -88,8 +88,7 @@ async def on_message(message: cl.Message) -> None:
         except Exception as error:
             root.set_attribute("error.type", type(error).__name__)
             reply.content = (
-                f"⚠️ The model call failed: `{type(error).__name__}`. "
-                "Check that the endpoint is up."
+                f"⚠️ The model call failed: `{type(error).__name__}`. Check that the endpoint is up."
             )
             await reply.update()
             return
@@ -108,8 +107,7 @@ async def on_message(message: cl.Message) -> None:
         except GuardRejected as rejection:
             root.set_attribute("output.refused_by", rejection.guard)
             reply.content = (
-                f"🛑 **Answer withheld by the {rejection.guard}.**\n\n"
-                f"{rejection.reason}"
+                f"🛑 **Answer withheld by the {rejection.guard}.**\n\n{rejection.reason}"
             )
             await reply.update()
             return
@@ -117,8 +115,7 @@ async def on_message(message: cl.Message) -> None:
         root.set_attribute("output.value", answer)
 
         history.extend(
-            [{"role": "user", "content": question},
-             {"role": "assistant", "content": answer}]
+            [{"role": "user", "content": question}, {"role": "assistant", "content": answer}]
         )
         cl.user_session.set("history", history)
 
@@ -138,9 +135,7 @@ async def _refuse(rejection: GuardRejected, trace_id: str | None) -> None:
     Shown rather than hidden: the point is that the system said no, and why.
     """
     body = (
-        f"🛑 **Refused by the {rejection.guard}.**\n\n"
-        f"{rejection.reason}\n\n"
-        f"_No model was called._"
+        f"🛑 **Refused by the {rejection.guard}.**\n\n{rejection.reason}\n\n_No model was called._"
     )
     if trace_id:
         body += f"\n\n`trace {trace_id}`"
@@ -150,10 +145,18 @@ async def _refuse(rejection: GuardRejected, trace_id: str | None) -> None:
 def _thumbs(trace_id: str | None, question: str) -> list[cl.Action]:
     payload = {"trace_id": trace_id, "question": question}
     return [
-        cl.Action(name="helpful", payload={**payload, "helpful": True},
-                  label="👍", tooltip="This answer was helpful"),
-        cl.Action(name="not_helpful", payload={**payload, "helpful": False},
-                  label="👎", tooltip="This answer was not helpful"),
+        cl.Action(
+            name="helpful",
+            payload={**payload, "helpful": True},
+            label="👍",
+            tooltip="This answer was helpful",
+        ),
+        cl.Action(
+            name="not_helpful",
+            payload={**payload, "helpful": False},
+            label="👎",
+            tooltip="This answer was not helpful",
+        ),
     ]
 
 

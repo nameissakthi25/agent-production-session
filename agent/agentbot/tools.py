@@ -44,8 +44,7 @@ class LookupTicketArgs(BaseModel):
 
         if not re.fullmatch(r"INC-[A-Z]{3}-\d{4}", value.strip().upper()):
             raise ValueError(
-                "ticket_id must look like INC-ALP-0001 "
-                "(INC, a three-letter family, four digits)"
+                "ticket_id must look like INC-ALP-0001 (INC, a three-letter family, four digits)"
             )
         return value.strip().upper()
 
@@ -114,10 +113,7 @@ def check_service_status(service: str) -> str:
     known = services()
     match = known.get(service.strip().lower())
     if match is None:
-        return (
-            f"No service called {service!r}. Known services: "
-            + ", ".join(sorted(known))
-        )
+        return f"No service called {service!r}. Known services: " + ", ".join(sorted(known))
     return json.dumps(match, indent=2)
 
 
@@ -140,9 +136,7 @@ REGISTRY: dict[str, tuple] = {
                 ),
                 "parameters": {
                     "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "What to look for"}
-                    },
+                    "properties": {"query": {"type": "string", "description": "What to look for"}},
                     "required": ["query"],
                 },
             },

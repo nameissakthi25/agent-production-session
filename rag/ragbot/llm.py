@@ -39,9 +39,7 @@ NO_CONTEXT_REPLY = (
     "scored above the retrieval threshold, so I have no sources to work from."
 )
 
-_client = AsyncOpenAI(
-    base_url=OPENAI_BASE_URL, api_key=OPENAI_API_KEY, timeout=REQUEST_TIMEOUT
-)
+_client = AsyncOpenAI(base_url=OPENAI_BASE_URL, api_key=OPENAI_API_KEY, timeout=REQUEST_TIMEOUT)
 
 
 def build_messages(question: str, hits: list[Hit]) -> list[dict]:

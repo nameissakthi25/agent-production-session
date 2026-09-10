@@ -35,6 +35,7 @@ x
 
 # --- chunking --------------------------------------------------------------
 
+
 def test_splits_on_headings():
     chunks = chunk_document("password.md", SAMPLE)
     headings = [c.heading for c in chunks]
@@ -88,8 +89,7 @@ def test_citation_names_the_document_and_section():
 def test_a_procedure_is_not_cut_in_half():
     """The whole reason for splitting on structure: half a numbered procedure,
     retrieved confidently, is worse than nothing."""
-    steps = next(c for c in chunk_document("password.md", SAMPLE)
-                 if c.heading == "Steps")
+    steps = next(c for c in chunk_document("password.md", SAMPLE) if c.heading == "Steps")
     for step in ("1.", "2.", "3."):
         assert step in steps.text
 
@@ -102,7 +102,7 @@ def test_long_sections_are_split_on_paragraphs():
     for chunk in chunks:
         # The prefix is added after splitting, so allow for it.
         assert len(chunk.text) <= MAX_CHARS + 200
-        assert not chunk.text.endswith(("th", "sen"))   # not mid-word
+        assert not chunk.text.endswith(("th", "sen"))  # not mid-word
 
 
 @pytest.mark.parametrize("doc", sorted(CORPUS.glob("*.md"))[:10])
@@ -115,14 +115,16 @@ def test_real_corpus_documents_chunk_cleanly(doc):
 
 
 def test_whole_corpus_chunks():
-    total = sum(len(chunk_document(p.name, p.read_text(encoding="utf-8")))
-                for p in CORPUS.glob("*.md"))
+    total = sum(
+        len(chunk_document(p.name, p.read_text(encoding="utf-8"))) for p in CORPUS.glob("*.md")
+    )
     # A sanity band, not an exact figure: it should be several chunks per
     # document, and if it collapses to roughly one the heading split broke.
     assert total > 100, f"only {total} chunks -- did the heading split stop working?"
 
 
 # --- versioning ------------------------------------------------------------
+
 
 def test_version_is_stable_for_the_same_content():
     assert build_manifest(CORPUS)["version"] == build_manifest(CORPUS)["version"]
@@ -162,7 +164,7 @@ def test_version_ignores_filesystem_order(tmp_path):
         (tmp_path / name).write_text(f"# {name}\n\n## S\n\n" + "x" * 200)
     version = build_manifest(tmp_path)["version"]
     for name in ("z.md", "a.md", "m.md"):
-        (tmp_path / name).touch()          # changes mtime, not content
+        (tmp_path / name).touch()  # changes mtime, not content
     assert build_manifest(tmp_path)["version"] == version
 
 

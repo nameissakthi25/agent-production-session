@@ -91,9 +91,7 @@ class PresidioPII(Validator):
         self.threshold = threshold
 
     def _validate(self, value: str, metadata: dict) -> ValidationResult:
-        results = _get_analyzer().analyze(
-            text=value, entities=self.entities, language="en"
-        )
+        results = _get_analyzer().analyze(text=value, entities=self.entities, language="en")
         hits = [r for r in results if r.score >= self.threshold]
         if not hits:
             return PassResult()
@@ -116,9 +114,7 @@ def build_guard(entities=DEFAULT_ENTITIES, threshold=DEFAULT_THRESHOLD) -> Guard
     silently ignored and the Guard then returns a failed outcome instead of
     raising, which looks exactly like a guard that never fires.
     """
-    return Guard().use(
-        PresidioPII(entities=entities, threshold=threshold, on_fail="exception")
-    )
+    return Guard().use(PresidioPII(entities=entities, threshold=threshold, on_fail="exception"))
 
 
 def build_hub_guard() -> Guard:

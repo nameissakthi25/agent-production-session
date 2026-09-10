@@ -66,9 +66,7 @@ def check_tool_call(agent: str, tool: str, raw_arguments: str | dict) -> dict:
         )
 
     if tool not in REGISTRY:
-        raise GuardRejected(
-            GUARD_NAME, f"tool {tool!r} does not exist", "registry"
-        )
+        raise GuardRejected(GUARD_NAME, f"tool {tool!r} does not exist", "registry")
 
     _, model, _ = REGISTRY[tool]
 

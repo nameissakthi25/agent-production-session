@@ -13,6 +13,7 @@ from agentbot.guards.patterns import find_injection, find_pii
 
 # --- input guard -----------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "message",
     [
@@ -64,6 +65,7 @@ def test_pii_returns_the_label_not_the_value():
 
 # --- output guard ----------------------------------------------------------
 
+
 def test_good_answer_passes():
     answer = "Go to the self-service portal and approve the MFA prompt."
     assert check_output(answer) == answer
@@ -91,6 +93,7 @@ def test_invented_pii_in_the_answer_is_refused():
 
 
 # --- the exception carries what the span needs -----------------------------
+
 
 def test_rejection_carries_guard_reason_and_backend():
     with pytest.raises(GuardRejected) as caught:
@@ -151,7 +154,7 @@ def test_regex_catches_a_phone_the_framework_misses():
 
     text = "Call me on +44 7700 900123"
     assert find_pii(text) == "phone number"
-    build_guard().validate(text)      # framework lets it through
+    build_guard().validate(text)  # framework lets it through
 
 
 @presidio

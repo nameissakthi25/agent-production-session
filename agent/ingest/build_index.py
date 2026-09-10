@@ -73,14 +73,16 @@ def ensure_collection(client: QdrantClient, recreate: bool) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--recreate", action="store_true",
-                        help="drop the collection first")
-    parser.add_argument("--force", action="store_true",
-                        help="re-embed even if the corpus version is unchanged")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="chunk and report, but do not embed or load")
-    parser.add_argument("--show", type=int, default=0, metavar="N",
-                        help="print the first N chunks in full")
+    parser.add_argument("--recreate", action="store_true", help="drop the collection first")
+    parser.add_argument(
+        "--force", action="store_true", help="re-embed even if the corpus version is unchanged"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="chunk and report, but do not embed or load"
+    )
+    parser.add_argument(
+        "--show", type=int, default=0, metavar="N", help="print the first N chunks in full"
+    )
     args = parser.parse_args()
 
     corpus = Path(CORPUS_DIR)
@@ -88,9 +90,11 @@ def main() -> int:
     previous = read_manifest(Path(MANIFEST_PATH))
 
     print(f"corpus  : {corpus}")
-    print(f"version : {manifest['version']}  "
-          f"({manifest['document_count']} documents, "
-          f"{manifest['total_bytes'] / 1024:.0f} KiB)")
+    print(
+        f"version : {manifest['version']}  "
+        f"({manifest['document_count']} documents, "
+        f"{manifest['total_bytes'] / 1024:.0f} KiB)"
+    )
     print(f"change  : {describe_change(previous, manifest)}")
 
     if args.dry_run:
@@ -103,14 +107,15 @@ def main() -> int:
         sizes = sorted(len(c.text) for c in chunks)
         print("\nDRY RUN -- nothing was embedded or loaded")
         print(f"chunked : {len(chunks)} chunks from {manifest['document_count']} documents")
-        print(f"          {sizes[0]} / {sizes[len(sizes) // 2]} / {sizes[-1]} chars "
-              f"(min / median / max)")
+        print(
+            f"          {sizes[0]} / {sizes[len(sizes) // 2]} / {sizes[-1]} chars "
+            f"(min / median / max)"
+        )
         per_doc = {}
         for c in chunks:
             per_doc[c.doc_id] = per_doc.get(c.doc_id, 0) + 1
         busiest = sorted(per_doc.items(), key=lambda kv: -kv[1])[:5]
-        print("          most-chunked: "
-              + ", ".join(f"{d} ({n})" for d, n in busiest))
+        print("          most-chunked: " + ", ".join(f"{d} ({n})" for d, n in busiest))
         for c in chunks[: args.show]:
             print(f"\n--- chunk {c.ordinal} of {c.doc_id}  [{c.citation}]")
             print(c.text)
@@ -123,8 +128,10 @@ def main() -> int:
     if unchanged and not args.force and not args.recreate:
         info = client.get_collection(COLLECTION)
         if info.points_count:
-            print(f"\nnothing to do -- corpus unchanged and {COLLECTION!r} already "
-                  f"has {info.points_count} points. Pass --force to re-embed anyway.")
+            print(
+                f"\nnothing to do -- corpus unchanged and {COLLECTION!r} already "
+                f"has {info.points_count} points. Pass --force to re-embed anyway."
+            )
             return 0
         # The manifest says "already indexed" but the collection is empty. That
         # happens because the manifest lives on a volume and the vectors live in
@@ -132,8 +139,10 @@ def main() -> int:
         # without -v, a dropped collection, a restored backup. Trusting the
         # manifest alone here would leave you with an empty index and a script
         # cheerfully reporting nothing to do.
-        print(f"\nmanifest says {manifest['version']} is already indexed, but "
-              f"{COLLECTION!r} is empty -- indexing anyway.")
+        print(
+            f"\nmanifest says {manifest['version']} is already indexed, but "
+            f"{COLLECTION!r} is empty -- indexing anyway."
+        )
 
     # --- chunk ------------------------------------------------------------
     chunks = []
@@ -142,8 +151,9 @@ def main() -> int:
 
     sizes = sorted(len(c.text) for c in chunks)
     print(f"\nchunked : {len(chunks)} chunks from {manifest['document_count']} documents")
-    print(f"          {sizes[0]} / {sizes[len(sizes) // 2]} / {sizes[-1]} chars "
-          f"(min / median / max)")
+    print(
+        f"          {sizes[0]} / {sizes[len(sizes) // 2]} / {sizes[-1]} chars (min / median / max)"
+    )
 
     # --- embed ------------------------------------------------------------
     # Imported here, not at module scope: loading the ONNX model takes a few
@@ -161,8 +171,10 @@ def main() -> int:
             f"model emits {len(vectors[0])} dims but the collection expects "
             f"{EMBED_DIM}. Fix EMBED_DIM, then --recreate."
         )
-    print(f"embedded: {len(vectors)} vectors in {elapsed:.1f}s "
-          f"({len(vectors) / elapsed:.0f}/s), {len(vectors[0])} dims")
+    print(
+        f"embedded: {len(vectors)} vectors in {elapsed:.1f}s "
+        f"({len(vectors) / elapsed:.0f}/s), {len(vectors[0])} dims"
+    )
 
     # --- load -------------------------------------------------------------
     points = [

@@ -13,6 +13,7 @@ from agentbot.tools import REGISTRY
 
 # --- the allowlist ---------------------------------------------------------
 
+
 def test_each_agent_may_call_its_own_tools():
     assert check_tool_call("retriever", "search_kb", '{"query": "vpn"}')
     assert check_tool_call("tool_agent", "lookup_ticket", '{"ticket_id": "INC-VDA-0001"}')
@@ -22,9 +23,9 @@ def test_each_agent_may_call_its_own_tools():
 @pytest.mark.parametrize(
     "agent, tool",
     [
-        ("retriever", "lookup_ticket"),          # not its job
+        ("retriever", "lookup_ticket"),  # not its job
         ("retriever", "check_service_status"),
-        ("tool_agent", "search_kb"),             # nor is this
+        ("tool_agent", "search_kb"),  # nor is this
     ],
 )
 def test_an_agent_cannot_call_another_agents_tool(agent, tool):
@@ -71,6 +72,7 @@ def test_the_refusal_says_what_is_allowed_instead():
 
 # --- argument validation ---------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "ticket_id",
     ["INC-VDA-0001", "inc-vda-0001", " INC-ALP-0005 "],
@@ -83,10 +85,10 @@ def test_valid_ticket_ids_are_normalised(ticket_id):
 @pytest.mark.parametrize(
     "ticket_id",
     [
-        "IT-1041",          # the old format, and the one a model reaches for
-        "INC-1041",         # no family
-        "INC-VDA-1",        # too few digits
-        "INC-VDAA-0001",    # four-letter family
+        "IT-1041",  # the old format, and the one a model reaches for
+        "INC-1041",  # no family
+        "INC-VDA-1",  # too few digits
+        "INC-VDAA-0001",  # four-letter family
         "DROP TABLE tickets",
         "",
     ],
@@ -140,6 +142,7 @@ def test_the_reason_never_quotes_the_arguments():
 
 
 # --- the registry and the allowlist must agree -----------------------------
+
 
 def test_every_allowlisted_tool_exists():
     """Otherwise the allowlist permits something that cannot be called, which

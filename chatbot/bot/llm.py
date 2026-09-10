@@ -42,9 +42,7 @@ def build_messages(question: str, history: list[dict] | None = None) -> list[dic
     return messages
 
 
-async def stream_answer(
-    question: str, history: list[dict] | None = None
-) -> AsyncIterator[str]:
+async def stream_answer(question: str, history: list[dict] | None = None) -> AsyncIterator[str]:
     """Yield the answer one chunk at a time.
 
     Streaming is not decoration. On a self-hosted card the first token arrives

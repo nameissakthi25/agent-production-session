@@ -94,13 +94,11 @@ def guard_span(name: str, backend: str = "local"):
         except GuardRejected as rejection:
             span.set_attribute("guardrail.passed", False)
             span.set_attribute("guardrail.reason", rejection.reason)
-            span.set_attribute("guardrail.duration_ms",
-                               (time.perf_counter() - started) * 1000)
+            span.set_attribute("guardrail.duration_ms", (time.perf_counter() - started) * 1000)
             raise
         else:
             span.set_attribute("guardrail.passed", True)
-            span.set_attribute("guardrail.duration_ms",
-                               (time.perf_counter() - started) * 1000)
+            span.set_attribute("guardrail.duration_ms", (time.perf_counter() - started) * 1000)
 
 
 def record_feedback(trace_id: str | None, helpful: bool, question: str = "") -> None:

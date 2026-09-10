@@ -43,16 +43,13 @@ def _check_cheap(message: str, backend: str) -> None:
     if len(message) > MAX_INPUT_CHARS:
         raise GuardRejected(
             GUARD_NAME,
-            f"input is {len(message)} characters, over the "
-            f"{MAX_INPUT_CHARS} character limit",
+            f"input is {len(message)} characters, over the {MAX_INPUT_CHARS} character limit",
             backend,
         )
 
     phrase = find_injection(message)
     if phrase is not None:
-        raise GuardRejected(
-            GUARD_NAME, f"input contains the injection phrase {phrase!r}", backend
-        )
+        raise GuardRejected(GUARD_NAME, f"input contains the injection phrase {phrase!r}", backend)
 
     label = find_pii(message)
     if label is not None:
@@ -67,9 +64,7 @@ def _check_framework(message: str, backend: str) -> None:
         from ragbot.guards import framework
 
         _framework_guard = (
-            framework.build_hub_guard()
-            if GUARD_VALIDATOR == "hub"
-            else framework.build_guard()
+            framework.build_hub_guard() if GUARD_VALIDATOR == "hub" else framework.build_guard()
         )
 
     try:

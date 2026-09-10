@@ -41,11 +41,11 @@ MIN_CHARS = 40
 class Chunk:
     """One retrievable piece, and where it came from."""
 
-    doc_id: str          # the filename, which is what a citation shows
-    title: str           # the document's H1
-    heading: str         # the section it came from, "" for the preamble
-    ordinal: int         # position within the document, for stable ids
-    text: str            # what actually gets embedded
+    doc_id: str  # the filename, which is what a citation shows
+    title: str  # the document's H1
+    heading: str  # the section it came from, "" for the preamble
+    ordinal: int  # position within the document, for stable ids
+    text: str  # what actually gets embedded
     meta: dict = field(default_factory=dict)
 
     @property
@@ -86,7 +86,7 @@ def chunk_document(doc_id: str, raw: str) -> list[Chunk]:
     """Chunk one markdown document."""
     title_match = re.search(r"^#\s+(.+)$", raw, flags=re.M)
     title = title_match.group(1).strip() if title_match else doc_id
-    body = raw[title_match.end():] if title_match else raw
+    body = raw[title_match.end() :] if title_match else raw
 
     chunks: list[Chunk] = []
     for heading, section in _split_sections(body):

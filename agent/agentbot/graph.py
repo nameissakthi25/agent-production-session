@@ -34,9 +34,7 @@ from agentbot.guards.tool_guard import TOOL_ALLOWLIST, check_tool_call
 from agentbot.observability import tracer
 from agentbot.tools import REGISTRY, schemas_for
 
-_client = OpenAI(
-    base_url=OPENAI_BASE_URL, api_key=OPENAI_API_KEY, timeout=REQUEST_TIMEOUT
-)
+_client = OpenAI(base_url=OPENAI_BASE_URL, api_key=OPENAI_API_KEY, timeout=REQUEST_TIMEOUT)
 
 # Prose budgets are handled by _complete_text() rather than by a large
 # default, so a short answer stays fast.
@@ -133,8 +131,9 @@ def _complete_text(messages: list[dict], span=None, **kw) -> str:
 
     if span is not None:
         span.set_attribute("retried_for_token_budget", True)
-        span.set_attribute("first_attempt.completion_tokens",
-                           reply.usage.completion_tokens if reply.usage else -1)
+        span.set_attribute(
+            "first_attempt.completion_tokens", reply.usage.completion_tokens if reply.usage else -1
+        )
 
     kw["max_tokens"] = max(kw.get("max_tokens", MAX_TOKENS), MAX_TOKENS) * 3
     retry = _chat(messages, **kw)
@@ -236,23 +235,22 @@ def run_worker(name: str, question: str, steps: list[Step]) -> tuple[str, list[s
             )
 
             for call in calls:
-                messages.append(
-                    _execute(name, call, steps, citations)
-                )
+                messages.append(_execute(name, call, steps, citations))
 
         # Out of budget. Ask once more, WITHOUT tools, so the worker reports
         # what it already found instead of handing the synthesizer nothing but
         # the news that it gave up.
         span.set_attribute("agent.hit_call_budget", True)
         steps.append(
-            Step(name, f"tool budget spent ({MAX_TOOL_CALLS} calls) -- summarising",
-                 refused=True)
+            Step(name, f"tool budget spent ({MAX_TOOL_CALLS} calls) -- summarising", refused=True)
         )
-        messages.append({
-            "role": "user",
-            "content": "You have used your tool budget. Report what you found "
-                       "so far, and say plainly what you could not establish.",
-        })
+        messages.append(
+            {
+                "role": "user",
+                "content": "You have used your tool budget. Report what you found "
+                "so far, and say plainly what you could not establish.",
+            }
+        )
         return _complete_text(messages, span=span), citations
 
 
@@ -277,9 +275,7 @@ def _execute(agent: str, call, steps: list[Step], citations: list[str]) -> dict:
             span.set_attribute("guardrail.reason", rejection.reason)
             span.set_attribute("guardrail.backend", rejection.backend)
             ms = (time.perf_counter() - started) * 1000
-            steps.append(
-                Step(f"tool_guard → {tool}", rejection.reason, ms, refused=True)
-            )
+            steps.append(Step(f"tool_guard → {tool}", rejection.reason, ms, refused=True))
             return {
                 "role": "tool",
                 "tool_call_id": call.id,

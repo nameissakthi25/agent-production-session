@@ -40,12 +40,12 @@ async def on_chat_start() -> None:
     lines = ["**IT support assistant, with retrieval**", ""]
 
     if status["ok"]:
-        lines.append(f"- corpus: **{status['points']} chunks** in "
-                     f"`{status['collection']}`")
+        lines.append(f"- corpus: **{status['points']} chunks** in `{status['collection']}`")
     else:
         lines.append(f"- ⚠️ Qdrant unreachable: `{status['error']}`")
-        lines.append("  Run `docker compose up -d qdrant` then "
-                     "`uv run python -m ingest.build_index`.")
+        lines.append(
+            "  Run `docker compose up -d qdrant` then `uv run python -m ingest.build_index`."
+        )
 
     lines.append(f"- retrieval: top {TOP_K}, score floor {SCORE_FLOOR}")
     lines.append(f"- guards: `{backend_name()}` ({GUARD_VALIDATOR})")
@@ -77,11 +77,13 @@ async def on_message(message: cl.Message) -> None:
                 check_input(question)
         except GuardRejected as rejection:
             root.set_attribute("output.refused_by", rejection.guard)
-            await cl.Message(content=(
-                f"🛑 **Refused by the {rejection.guard}.**\n\n{rejection.reason}\n\n"
-                f"_Nothing was retrieved and no model was called._"
-                + (f"\n\n`trace {trace_id}`" if trace_id else "")
-            )).send()
+            await cl.Message(
+                content=(
+                    f"🛑 **Refused by the {rejection.guard}.**\n\n{rejection.reason}\n\n"
+                    f"_Nothing was retrieved and no model was called._"
+                    + (f"\n\n`trace {trace_id}`" if trace_id else "")
+                )
+            ).send()
             return
 
         # --- retrieve ------------------------------------------------------
@@ -89,8 +91,7 @@ async def on_message(message: cl.Message) -> None:
             hits, stats = search(question)
             for key, value in stats.items():
                 span.set_attribute(key, value)
-            span.set_attribute("retrieval.citations",
-                               ", ".join(h.citation for h in hits) or "none")
+            span.set_attribute("retrieval.citations", ", ".join(h.citation for h in hits) or "none")
 
         if not hits:
             # Nothing cleared the floor. Say so instead of asking the model to
@@ -111,8 +112,9 @@ async def on_message(message: cl.Message) -> None:
                 await reply.stream_token(piece)
         except Exception as error:
             root.set_attribute("error.type", type(error).__name__)
-            reply.content = (f"⚠️ The model call failed: `{type(error).__name__}`. "
-                             "Check the endpoint is up.")
+            reply.content = (
+                f"⚠️ The model call failed: `{type(error).__name__}`. Check the endpoint is up."
+            )
             await reply.update()
             return
 
@@ -128,8 +130,9 @@ async def on_message(message: cl.Message) -> None:
                 check_output(answer)
         except GuardRejected as rejection:
             root.set_attribute("output.refused_by", rejection.guard)
-            reply.content = (f"🛑 **Answer withheld by the {rejection.guard}.**\n\n"
-                             f"{rejection.reason}")
+            reply.content = (
+                f"🛑 **Answer withheld by the {rejection.guard}.**\n\n{rejection.reason}"
+            )
             await reply.update()
             return
 
@@ -148,10 +151,7 @@ async def _show_sources(hits, stats) -> None:
     be wrong.
     """
     if hits:
-        rows = "\n".join(
-            f"| {n} | `{h.citation}` | {h.score:.3f} |"
-            for n, h in enumerate(hits, 1)
-        )
+        rows = "\n".join(f"| {n} | `{h.citation}` | {h.score:.3f} |" for n, h in enumerate(hits, 1))
         body = (
             f"**Sources** — corpus `{stats['retrieval.corpus_version']}`, "
             f"{stats['retrieval.candidates']} candidates, "
@@ -182,10 +182,18 @@ def _thumbs(trace_id, question, hits) -> list[cl.Action]:
         "top_score": round(hits[0].score, 4) if hits else 0.0,
     }
     return [
-        cl.Action(name="helpful", payload={**payload, "helpful": True},
-                  label="👍", tooltip="This answer was helpful"),
-        cl.Action(name="not_helpful", payload={**payload, "helpful": False},
-                  label="👎", tooltip="This answer was not helpful"),
+        cl.Action(
+            name="helpful",
+            payload={**payload, "helpful": True},
+            label="👍",
+            tooltip="This answer was helpful",
+        ),
+        cl.Action(
+            name="not_helpful",
+            payload={**payload, "helpful": False},
+            label="👎",
+            tooltip="This answer was not helpful",
+        ),
     ]
 
 
@@ -212,9 +220,12 @@ async def _record(action: cl.Action) -> None:
         },
     )
     await cl.Message(
-        content=("Recorded: 👍 helpful" if helpful else
-                 "Recorded: 👎 not helpful — the retrieved sources were saved "
-                 "with it, so this is replayable as an eval case."),
+        content=(
+            "Recorded: 👍 helpful"
+            if helpful
+            else "Recorded: 👎 not helpful — the retrieved sources were saved "
+            "with it, so this is replayable as an eval case."
+        ),
         author="feedback",
     ).send()
     await action.remove()

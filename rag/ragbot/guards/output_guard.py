@@ -47,9 +47,7 @@ def _build_nsfw_guard():
             "  guardrails hub install hub://guardrails/nsfw_text"
         ) from error
 
-    return Guard().use(
-        NSFWText(threshold=0.8, validation_method="sentence", on_fail="exception")
-    )
+    return Guard().use(NSFWText(threshold=0.8, validation_method="sentence", on_fail="exception"))
 
 
 def check_output(answer: str) -> str:
@@ -83,8 +81,6 @@ def check_output(answer: str) -> str:
             _nsfw_guard.validate(answer)
         except Exception as error:
             reason = str(error).strip().splitlines()[0][:200]
-            raise GuardRejected(
-                GUARD_NAME, f"NSFWText refused: {reason}", backend
-            ) from error
+            raise GuardRejected(GUARD_NAME, f"NSFWText refused: {reason}", backend) from error
 
     return answer
