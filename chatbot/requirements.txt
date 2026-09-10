@@ -1,0 +1,27 @@
+# Pins are exact so a rebuild gets the same stack. Versions checked on PyPI
+# 2026-09-10; bump them deliberately, not by accident.
+
+# --- the app ---------------------------------------------------------------
+chainlit==2.12.0
+
+# --- the model client ------------------------------------------------------
+#
+# 2.x, NOT 3.x, on purpose. guardrails-ai declares openai<3.0.0, so pinning the
+# newest openai makes pip refuse the pair -- or, in a loose venv, silently
+# downgrade one of them. Everything this app uses is stable across both majors,
+# so taking 2.x costs nothing and keeps a single requirements file that
+# actually resolves.
+openai==2.54.0
+
+# --- tracing ---------------------------------------------------------------
+arize-phoenix-otel==0.17.1
+openinference-instrumentation-openai==0.1.60
+
+# --- guards ----------------------------------------------------------------
+#
+# The Hub validators (DetectPII, NSFWText) are NOT pip packages and are not
+# installed by this file. See README: they are fetched one at a time with
+# `guardrails hub install`, and the app runs without them on GUARD_VALIDATOR=local.
+guardrails-ai==0.11.0
+
+python-dotenv==1.2.3

@@ -1,0 +1,48 @@
+# Phoenix, and optionally the bot, as containers.
+#
+# The bot can equally run on the host with `make run` -- it is here so the
+# whole thing comes up with one command on a machine that has nothing but
+# Docker installed.
+
+services:
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    restart: unless-stopped
+    ports:
+      # 6006 is the UI and the OTLP HTTP collector, on the same port.
+      - "6006:6006"
+    environment:
+      # Keep traces on a volume rather than in the container filesystem, so
+      # restarting Phoenix does not throw away the runs you were about to look
+      # at.
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix-data:/data
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatbot
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      # Inside the compose network Phoenix is a hostname, not localhost.
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+      # ...but the BROWSER still reaches it on localhost. These two differing
+      # is the single most common tracing-in-Docker mistake.
+      PHOENIX_PUBLIC_URL: ${PHOENIX_PUBLIC_URL:-http://localhost:6006}
+      # host.docker.internal reaches a model server running on the host.
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-used}
+      MODEL_NAME: ${MODEL_NAME:-Qwen/Qwen3.8-27B-FP8}
+      GUARD_VALIDATOR: ${GUARD_VALIDATOR:-local}
+    depends_on:
+      - phoenix
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  phoenix-data:

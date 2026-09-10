@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+feedback.jsonl
+.chainlit/translations/
+.files/
+.ruff_cache/
+.pytest_cache/
