@@ -1,0 +1,38 @@
+{
+  "vpn": {
+    "service": "vpn",
+    "status": "operational",
+    "since": "2026-09-02T08:00:00Z",
+    "note": "Global Protect gateway, all regions"
+  },
+  "email": {
+    "service": "email",
+    "status": "degraded",
+    "since": "2026-09-10T06:15:00Z",
+    "note": "Mailbox quota checks are slow; sending is unaffected"
+  },
+  "password-reset-portal": {
+    "service": "password-reset-portal",
+    "status": "operational",
+    "since": "2026-08-28T09:30:00Z",
+    "note": null
+  },
+  "shared-drives": {
+    "service": "shared-drives",
+    "status": "operational",
+    "since": "2026-09-05T12:00:00Z",
+    "note": null
+  },
+  "mfa": {
+    "service": "mfa",
+    "status": "maintenance",
+    "since": "2026-09-11T22:00:00Z",
+    "note": "Okta upgrade window, 22:00-02:00 UTC"
+  },
+  "wifi": {
+    "service": "wifi",
+    "status": "operational",
+    "since": "2026-07-19T00:00:00Z",
+    "note": null
+  }
+}

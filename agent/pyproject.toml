@@ -1,0 +1,48 @@
+[project]
+name = "agent"
+version = "0.1.0"
+description = "Supervisor and workers over an IT support corpus, with a tool guard"
+requires-python = ">=3.11,<3.13"
+
+dependencies = [
+    "chainlit==2.12.0",
+    # 2.x because guardrails-ai declares openai<3.0.0. See chatbot/pyproject.toml.
+    "openai>=2.54.0,<3",
+
+    # --- retrieval -------------------------------------------------------
+    "qdrant-client>=1.19.0",
+    # Embeddings on CPU, deliberately. bge-small is 384 dimensions and ~130MB;
+    # spending GPU memory on it would take VRAM away from the model that
+    # actually needs it. fastembed runs it through ONNX Runtime, no torch.
+    "fastembed>=0.8.0",
+
+    # --- tracing ---------------------------------------------------------
+    "arize-phoenix-otel>=0.17.1",
+    "openinference-instrumentation-openai>=0.1.60",
+
+    # --- guards ----------------------------------------------------------
+    "guardrails-ai==0.11.0",
+    "presidio-analyzer>=2.2.364",
+    "en-core-web-sm",
+
+    "python-dotenv>=1.2.3",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1", "ruff>=0.16.6"]
+
+[tool.uv.sources]
+en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

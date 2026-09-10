@@ -6,8 +6,9 @@ into something you could defend: **guardrails**, **tracing**, and a **UI**.
 ```
 agent-production-session/
 ├── serving-from-scratch.ipynb   ← start here: empty machine → traced, guarded endpoint
-├── chatbot/                     ← the same ideas as a running app, no documents
-└── rag/                         ← ...and with a corpus it can actually read
+├── chatbot/                     ← the ideas as a running app. No documents
+├── rag/                         ← ...with a corpus it can read
+└── agent/                       ← ...and workers that decide, with a tool guard
 ```
 
 Read them in that order. The chatbot invents a plausible password-reset portal
@@ -48,28 +49,32 @@ Each is a self-contained project: its own folder, README, lockfile, Docker
 image, compose file, guards and Phoenix project. Nothing is imported across the
 boundary, so either one can be read, run or copied on its own.
 
-| | [`chatbot/`](chatbot/) | [`rag/`](rag/) |
-|---|---|---|
-| **Reads documents** | no | **yes** — 51 IT support articles |
-| **Answer to "how do I reset my password"** | invents a plausible portal | the real URL, cited `[1]` |
-| **Says "I do not know"** | never | when nothing clears the score floor |
-| Ports | 8001, 6006 | 8002, 6007, 6333 |
-| Phoenix project | `chainlit-support-bot` | `rag-support-bot` |
-| Guards | input + output | input + output, before and after retrieval |
-| Tests | 26 | 51 |
-| Docs | [chatbot/README.md](chatbot/README.md) | [rag/README.md](rag/README.md) |
+| | [`chatbot/`](chatbot/) | [`rag/`](rag/) | [`agent/`](agent/) |
+|---|---|---|---|
+| **Reads documents** | no | **yes** — 51 articles | yes, as a *tool* |
+| **"how do I reset my password"** | invents a portal | the real URL, cited | routed to `retriever`, cited |
+| **Says "I do not know"** | never | below the score floor | when a tool is refused, and says which |
+| **Decides anything** | no | no | a supervisor picks one of three workers |
+| Guards | input, output | input, output | input, **tool**, output |
+| Ports | 8001, 6006 | 8002, 6007, 6333 | 8003, 6008, 6335 |
+| Phoenix project | `chainlit-support-bot` | `rag-support-bot` | `agent-support-bot` |
+| Tests | 26 | 51 | 78 |
+| Docs | [README](chatbot/README.md) | [README](rag/README.md) | [README](agent/README.md) |
 
 **Read them in that order.** The chatbot invents a password-reset portal because
 it has nothing to read; `rag/` gives it a corpus, and the difference between the
-two answers is the entire argument for retrieval.
+two answers is the argument for retrieval. `agent/` adds the thing retrieval
+cannot do — choosing between sources, calling tools, and being stopped when it
+calls one wrongly.
 
-They are separate compose projects and run at the same time — verified with both
-up: 8001, 8002, 6006, 6007 and 6333 all serving. They were both on host 6006 at
-first, which fails on the port bind the moment you bring up the second one.
+Three separate compose projects, running at the same time. `chatbot/` and
+`rag/` were both on host 6006 at first, which fails on the port bind the moment
+you bring up the second one — so each owns its own.
 
 ```bash
-cd chatbot && docker compose up -d --build     # http://localhost:8001
-cd ../rag  && docker compose up -d --build     # http://localhost:8002
+cd chatbot  && docker compose up -d --build                              # :8001
+cd ../rag   && docker compose up -d --build && docker compose run --rm ingest  # :8002
+cd ../agent && docker compose up -d --build && docker compose run --rm ingest  # :8003
 ```
 
 Both need a model: point `OPENAI_BASE_URL` at any OpenAI-compatible endpoint.

@@ -1,0 +1,117 @@
+# Four services, and the order matters: Qdrant has to exist before the index is
+# built, and the index has to exist before the bot can answer anything.
+
+services:
+  # The vector database. Its own container, its own volume -- the corpus lives
+  # here, not in the application image, which is why re-indexing does not mean
+  # rebuilding the bot.
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    container_name: agent-qdrant
+    restart: unless-stopped
+    ports:
+      - "6335:6333"        # REST + the built-in dashboard at /dashboard
+      - "6336:6334"        # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      # Qdrant's image has no curl and no shell utilities worth relying on, so
+      # bash's own /dev/tcp is the portable check. It answers "is the port
+      # open", which is what depends_on actually needs to know.
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: agent-phoenix
+    restart: unless-stopped
+    ports:
+      # 6008 on the host: chatbot/ uses 6006 and rag/ uses 6007. Three compose
+      # projects, three host ports, one container port. Inside this network it
+      # is still 6006 -- only the host mapping moves.
+      - "6008:6006"
+    environment:
+      PHOENIX_WORKING_DIR: /data
+    volumes:
+      - phoenix-data:/data
+
+  # Runs once, then exits. `docker compose up` waits for it because the bot
+  # depends on it completing successfully -- so a fresh clone comes up with a
+  # populated index instead of an empty one that answers nothing.
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-ingest
+    # A profile, so a plain `docker compose up` does NOT silently ingest. The
+    # database starts empty on purpose: creating the collection and filling it
+    # are the two steps worth watching, and a stack that has already done them
+    # before you look has hidden the interesting part.
+    #   docker compose run --rm ingest      (works regardless of profile)
+    #   docker compose --profile ingest up  (if you want it automatic)
+    profiles: ["ingest"]
+    command: ["python", "-m", "ingest.build_index"]
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-it-support-agent}
+      # The manifest is written here so a re-run can tell what changed. Shared
+      # with the bot's volume so both agree on which corpus version is live.
+      MANIFEST_PATH: /app/state/corpus.manifest.json
+    volumes:
+      - fastembed-cache:/app/.cache/fastembed
+      - ingest-state:/app/state
+      # The corpus is bind-mounted over the copy baked into the image, so
+      # editing a document on your machine changes what the next ingest sees.
+      # Without this the image's copy wins, you edit a file, re-run the ingest,
+      # and it reports "unchanged" -- which looks like the version hash is
+      # broken when in fact the container never saw your edit.
+      # Read-only: ingest reads the corpus, it never writes to it.
+      - ./corpus:/app/corpus:ro
+      # Tool data too, so a ticket can be added without rebuilding the image.
+      - ./data:/app/data:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: "no"
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-bot
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-it-support-agent}
+      MANIFEST_PATH: /app/state/corpus.manifest.json
+      # Inside the network Phoenix is a hostname; in your browser it is
+      # localhost. These two differing is the usual tracing-in-Docker mistake.
+      PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006/v1/traces
+      PHOENIX_PUBLIC_URL: ${PHOENIX_PUBLIC_URL:-http://localhost:6008}
+      PHOENIX_PROJECT_NAME: agent-support-bot
+      # host.docker.internal reaches a model server running on the host.
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-not-used}
+      MODEL_NAME: ${MODEL_NAME:-qwen3}
+      GUARD_VALIDATOR: ${GUARD_VALIDATOR:-guardrails}
+      TOP_K: ${TOP_K:-4}
+      SCORE_FLOOR: ${SCORE_FLOOR:-0.65}
+    volumes:
+      - fastembed-cache:/app/.cache/fastembed
+      - ingest-state:/app/state
+      - ./data:/app/data:ro
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  qdrant-data:
+  phoenix-data:
+  fastembed-cache:
+  ingest-state:

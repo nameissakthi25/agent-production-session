@@ -1,0 +1,380 @@
+{
+  "INC-AIT-0004": {
+    "ticket_id": "INC-AIT-0004",
+    "title": "API integration timeouts causing delayed data sync",
+    "service_family": "AIT",
+    "status": "resolved",
+    "symptom": "Overnight scheduled data synchronization jobs between the Integration Gateway (igw-prod-east.corplabs.internal) and the downstream Inventory API service intermittently failed from approximately 02:00 to 03:30 UTC on 2025-12-02 in us-east-1.",
+    "resolution": null,
+    "article": "inc-ait-0004.md"
+  },
+  "INC-AIT-0005": {
+    "ticket_id": "INC-AIT-0005",
+    "title": "Integration Gateway API timeouts causing failed sync jobs",
+    "service_family": "AIT",
+    "status": "resolved",
+    "symptom": "Customers were trying to run scheduled data synchronization through the Integration Gateway (igw-prod-east-01), but starting around 2025-12-02 03:10 UTC the gateway began returning repeated 504 Gateway Timeout errors on downstream API calls",
+    "resolution": null,
+    "article": "inc-ait-0005.md"
+  },
+  "INC-AIT-0009": {
+    "ticket_id": "INC-AIT-0009",
+    "title": "Integration Gateway - scheduled job timeouts",
+    "service_family": "AIT",
+    "status": "resolved",
+    "symptom": "Overnight scheduled data sync jobs through the Integration Gateway in Kubernetes (namespace: intg-gateway-prod) began failing against the upstream partner API (partner: Meridian Data Services) in us-east-1. The issue was first flagged by th",
+    "resolution": null,
+    "article": "inc-ait-0009.md"
+  },
+  "INC-ALP-0003": {
+    "ticket_id": "INC-ALP-0003",
+    "title": "account locked after failed sign-ins",
+    "service_family": "ALP",
+    "status": "resolved",
+    "symptom": "I (<PERSON>, emp ID <EMP_ID>) was trying to sign in to corporate SSO and internal applications from my iPhone (<HOSTNAME>) after changing my password in the Password Reset Portal. Although the portal at https://passwordreset.corplabs.com sh",
+    "resolution": null,
+    "article": "inc-alp-0003.md"
+  },
+  "INC-ALP-0004": {
+    "ticket_id": "INC-ALP-0004",
+    "title": "account locked after repeated failed sign-ins",
+    "service_family": "ALP",
+    "status": "resolved",
+    "symptom": "I am unable to sign in to the SSO Portal (https://sso.corplabs.com) after multiple failed sign-in attempts across devices triggered an Active Directory account lockout on my account (username: <USER>). I completed a password reset in the Pa",
+    "resolution": null,
+    "article": "inc-alp-0004.md"
+  },
+  "INC-ALP-0005": {
+    "ticket_id": "INC-ALP-0005",
+    "title": "account locked after repeated failed sign-ins",
+    "service_family": "ALP",
+    "status": "resolved",
+    "symptom": "I was trying to sign in to the SSO Portal and use the Password Reset Portal from an iOS mobile device (hostname <HOSTNAME>), but received an account locked message after several failed sign-in attempts. My username is <USER> and my employee",
+    "resolution": null,
+    "article": "inc-alp-0005.md"
+  },
+  "INC-CES-0003": {
+    "ticket_id": "INC-CES-0003",
+    "title": "Expired TLS certificate caused internal service TLS outage",
+    "service_family": "CES",
+    "status": "resolved",
+    "symptom": "Users and internal integrations were trying to access the Internal Web Service at internal-web.svc.cluster.local, but browsers showed certificate warnings and dependent API calls began failing TLS validation. The issue was first reported by",
+    "resolution": null,
+    "article": "inc-ces-0003.md"
+  },
+  "INC-CES-0004": {
+    "ticket_id": "INC-CES-0004",
+    "title": "Expired TLS certificate caused internal web service TLS failures",
+    "service_family": "CES",
+    "status": "resolved",
+    "symptom": "Users and internal services were trying to reach internal.web.internal over HTTPS, but browsers displayed certificate warnings and dependent API clients failed TLS handshakes. The load balancer (LB-PROD-F5-01) in front of the internal web s",
+    "resolution": null,
+    "article": "inc-ces-0004.md"
+  },
+  "INC-CES-0006": {
+    "ticket_id": "INC-CES-0006",
+    "title": "Internal Web Service TLS outage",
+    "service_family": "CES",
+    "status": "resolved",
+    "symptom": "Internal staff in the <LOCATION> data center were trying to access the Internal Web Service over HTTPS for the internal-service-api and internal-dashboard endpoints (internal-service.company.local), but browsers showed certificate warnings ",
+    "resolution": null,
+    "article": "inc-ces-0006.md"
+  },
+  "INC-DCP-0003": {
+    "ticket_id": "INC-DCP-0003",
+    "title": "Devices marked noncompliant after stale policy reference",
+    "service_family": "DCP",
+    "status": "resolved",
+    "symptom": "Multiple Intune-managed Windows 10 and Android 11 devices used by the Sales group in the <LOCATION> office were marked noncompliant after a recent compliance policy consolidation initiated by admin <PERSON> (<EMAIL>). Conditional Access the",
+    "resolution": null,
+    "article": "inc-dcp-0003.md"
+  },
+  "INC-DCP-0004": {
+    "ticket_id": "INC-DCP-0004",
+    "title": "Device marked noncompliant by Conditional Access despite Intune reporting compliant",
+    "service_family": "DCP",
+    "status": "resolved",
+    "symptom": "User <PERSON> (<EMP_ID>) on a Windows 10 21H2 managed laptop (hostname <HOSTNAME>) was blocked from accessing Microsoft 365 because Azure AD Conditional Access evaluated the device as noncompliant for missing encryption, while the Microsoft",
+    "resolution": null,
+    "article": "inc-dcp-0004.md"
+  },
+  "INC-DCP-0005": {
+    "ticket_id": "INC-DCP-0005",
+    "title": "Intune shows devices as NonCompliant causing Conditional Access blocks",
+    "service_family": "DCP",
+    "status": "resolved",
+    "symptom": "Multiple corporate-managed Windows 10/11 laptops assigned to the <LOCATION> US-East Sales and Field Engineer population began showing as NonCompliant in Intune after a compliance policy push on the evening of 2025-12-25. As a result, Azure ",
+    "resolution": null,
+    "article": "inc-dcp-0005.md"
+  },
+  "INC-DRF-0003": {
+    "ticket_id": "INC-DRF-0003",
+    "title": "Internal hostname fails to resolve \u2014 stale A record in internal DNS",
+    "service_family": "DRF",
+    "status": "resolved",
+    "symptom": "Multiple internal users and monitoring agents were trying to reach app.example.internal, but name resolution intermittently returned NXDOMAIN or the outdated IP address 10.20.5.47 from internal DNS. The issue was first reported by <PERSON> ",
+    "resolution": null,
+    "article": "inc-drf-0003.md"
+  },
+  "INC-DRF-0004": {
+    "ticket_id": "INC-DRF-0004",
+    "title": "Internal hostname svc-db.internal fails DNS resolution",
+    "service_family": "DRF",
+    "status": "resolved",
+    "symptom": "Internal application teams were trying to reach the database service by the internal hostname svc-db.internal, but several application pods intermittently failed name resolution and could not connect to the DB. The issue was first reported ",
+    "resolution": null,
+    "article": "inc-drf-0004.md"
+  },
+  "INC-DRF-0007": {
+    "ticket_id": "INC-DRF-0007",
+    "title": "Intermittent DNS resolution failure for internal service",
+    "service_family": "DRF",
+    "status": "resolved",
+    "symptom": "Developers on the platform engineering team (reported by <PERSON>, emp ID <EMP_ID>) were trying to reach service.internal.corp for internal-service-api and the developer portal from the <LOCATION> and <LOCATION> office locations, but name r",
+    "resolution": null,
+    "article": "inc-drf-0007.md"
+  },
+  "INC-EDE-0003": {
+    "ticket_id": "INC-EDE-0003",
+    "title": "Device noncompliant for BitLocker \u2014 Intune shows conflicting state",
+    "service_family": "EDE",
+    "status": "resolved",
+    "symptom": "I noticed that corporate Windows 11 Enterprise laptop <HOSTNAME> (asset tag SLS-4821) assigned to <PERSON> (<USER>, employee ID <EMP_ID>) in the <LOCATION> office is flagged as noncompliant for disk encryption in Intune Device Compliance. T",
+    "resolution": null,
+    "article": "inc-ede-0003.md"
+  },
+  "INC-EDE-0004": {
+    "ticket_id": "INC-EDE-0004",
+    "title": "BitLocker not enabled",
+    "service_family": "EDE",
+    "status": "resolved",
+    "symptom": "I was trying to get the Azure AD joined Windows 10 21H2 device (hostname <HOSTNAME>, asset tag SLS-4821) assigned to <PERSON> (<EMAIL>, <EMP_ID>) into encryption compliance through Intune, but the endpoint showed BitLocker EncryptionState a",
+    "resolution": null,
+    "article": "inc-ede-0004.md"
+  },
+  "INC-EDE-0008": {
+    "ticket_id": "INC-EDE-0008",
+    "title": "BitLocker not enabled and recovery key not escrowed",
+    "service_family": "EDE",
+    "status": "resolved",
+    "symptom": "A managed Windows 10 21H2 corporate laptop (hostname: <HOSTNAME>, asset tag ENG-4821) assigned to <PERSON> (emp ID <EMP_ID>) in the <LOCATION> office was reported as noncompliant for disk encryption in Intune. The device, with IP <IP>, coul",
+    "resolution": null,
+    "article": "inc-ede-0008.md"
+  },
+  "INC-LPD-0003": {
+    "ticket_id": "INC-LPD-0003",
+    "title": "Laptop slow after login",
+    "service_family": "LPD",
+    "status": "resolved",
+    "symptom": "I'm experiencing recurring laptop performance degradation immediately after Windows 10 login on my corporate laptop (hostname <HOSTNAME>, asset tag EMEA-SLS-4417). MsMpEng.exe was consuming about 95% CPU, Windows Explorer and Microsoft Edge",
+    "resolution": null,
+    "article": "inc-lpd-0003.md"
+  },
+  "INC-LPD-0004": {
+    "ticket_id": "INC-LPD-0004",
+    "title": "Laptop very slow after login",
+    "service_family": "LPD",
+    "status": "resolved",
+    "symptom": "I'm experiencing severe laptop slowness immediately after morning sign-in on my Windows 10 laptop (<HOSTNAME>). CPU remained near 90% and disk utilization reached 98%, causing Outlook and Google Chrome to take several minutes to open and be",
+    "resolution": null,
+    "article": "inc-lpd-0004.md"
+  },
+  "INC-LPD-0006": {
+    "ticket_id": "INC-LPD-0006",
+    "title": "Laptop slow",
+    "service_family": "LPD",
+    "status": "resolved",
+    "symptom": "I have a Windows 10 Pro Dell Latitude 5500 (hostname <HOSTNAME>, asset tag MKT-04821) assigned to <PERSON> (emp ID <EMP_ID>) in the Marketing group becoming very slow immediately after login, with CPU rising above 85-90% within minutes and ",
+    "resolution": null,
+    "article": "inc-lpd-0006.md"
+  },
+  "INC-OES-0003": {
+    "ticket_id": "INC-OES-0003",
+    "title": "Outlook/ActiveSync: Mobile and desktop email not syncing (device compliance block)",
+    "service_family": "OES",
+    "status": "resolved",
+    "symptom": "I was trying to access and sync email in Outlook on my Windows 10 laptop (<HOSTNAME>) and Outlook on my iPhone, but mailbox updates for <EMAIL> stopped approximately 48 hours earlier. Outlook desktop showed a disconnected state and the mobi",
+    "resolution": null,
+    "article": "inc-oes-0003.md"
+  },
+  "INC-OES-0004": {
+    "ticket_id": "INC-OES-0004",
+    "title": "Outlook mobile not syncing",
+    "service_family": "OES",
+    "status": "resolved",
+    "symptom": "I was trying to access current email from Outlook for iOS on my iPhone (<HOSTNAME>) after a recent iOS 17.3 update, but the mobile inbox stopped receiving new messages and remained stale with older mail. My account is <EMAIL> and I'm based ",
+    "resolution": null,
+    "article": "inc-oes-0004.md"
+  },
+  "INC-OES-0005": {
+    "ticket_id": "INC-OES-0005",
+    "title": "Outlook clients failing to sync with Exchange Online",
+    "service_family": "OES",
+    "status": "resolved",
+    "symptom": "Multiple users in the Sales Division at the <LOCATION> office were trying to receive new email in Outlook for Windows and Outlook for iOS, but desktop clients showed \"Disconnected\" and mobile mailboxes stopped updating for several hours. Th",
+    "resolution": null,
+    "article": "inc-oes-0005.md"
+  },
+  "INC-PDQ-0003": {
+    "ticket_id": "INC-PDQ-0003",
+    "title": "Print jobs stuck on Print Server PDQ-Print01",
+    "service_family": "PDQ",
+    "status": "resolved",
+    "symptom": "Multiple users in the Sales and HR departments were trying to print to shared department printers through print server PDQ-Print01, but jobs remained stuck in a spooling state and the queue reported that the printer driver was unavailable. ",
+    "resolution": null,
+    "article": "inc-pdq-0003.md"
+  },
+  "INC-PDQ-0004": {
+    "ticket_id": "INC-PDQ-0004",
+    "title": "Print jobs stuck on print-server-02 after driver update",
+    "service_family": "PDQ",
+    "status": "resolved",
+    "symptom": "Corporate Office users in the <LOCATION> location were trying to print to the shared queue PrinterQueue-Corp on print-server-02 after an overnight printer driver deployment pushed by the Workplace Services team. Submitted jobs from multiple",
+    "resolution": null,
+    "article": "inc-pdq-0004.md"
+  },
+  "INC-PDQ-0005": {
+    "ticket_id": "INC-PDQ-0005",
+    "title": "Print jobs stuck on PS-PRINT01",
+    "service_family": "PDQ",
+    "status": "resolved",
+    "symptom": "Multiple Finance users in the <LOCATION> office were trying to print to the Dept-Color-Queue hosted on print server PS-PRINT01, but jobs stayed queued at 0%, the printer appeared offline, and the driver showed as unavailable. The issue was ",
+    "resolution": null,
+    "article": "inc-pdq-0005.md"
+  },
+  "INC-SDA-0003": {
+    "ticket_id": "INC-SDA-0003",
+    "title": "denied access to department shared drive",
+    "service_family": "SDA",
+    "status": "resolved",
+    "symptom": "I (<USER>, employee ID <EMP_ID>) was trying to open the Marketing department shared folder from mapped drive Z: in Windows Explorer on my Windows 10 workstation <HOSTNAME>. The share was visible, but opening the folder returned \"Access is d",
+    "resolution": null,
+    "article": "inc-sda-0003.md"
+  },
+  "INC-SDA-0004": {
+    "ticket_id": "INC-SDA-0004",
+    "title": "Access denied to Finance shared drive",
+    "service_family": "SDA",
+    "status": "resolved",
+    "symptom": "I was trying to open the Finance shared drive from my Windows 10 client (<HOSTNAME>, IP <IP>) using the mapped network path \\\\Shared\\\\Finance. Windows prompted for credentials and then returned \"Access is denied,\" preventing access to Finan",
+    "resolution": null,
+    "article": "inc-sda-0004.md"
+  },
+  "INC-SDA-0007": {
+    "ticket_id": "INC-SDA-0007",
+    "title": "Access denied to Finance shared drive",
+    "service_family": "SDA",
+    "status": "resolved",
+    "symptom": "I was trying to open the Finance shared drive from the mapped network path \\\\FS-FIN-01.corplabs.internal\\Finance$ after a recent group membership update. Windows prompted for credentials and then returned Access Denied (0x80070005), prevent",
+    "resolution": null,
+    "article": "inc-sda-0007.md"
+  },
+  "INC-SIB-0003": {
+    "ticket_id": "INC-SIB-0003",
+    "title": "Software Center installation blocked by Endpoint Protection (resolved)",
+    "service_family": "SIB",
+    "status": "resolved",
+    "symptom": "I was trying to install ContosoApp from Software Center on my managed Windows 10 21H2 x64 device (hostname <HOSTNAME>), but the installation was immediately blocked with an Endpoint Protection message stating \"Installation blocked by Endpoi",
+    "resolution": null,
+    "article": "inc-sib-0003.md"
+  },
+  "INC-SIB-0004": {
+    "ticket_id": "INC-SIB-0004",
+    "title": "Software Center installation blocked by Endpoint Protection (reopened)",
+    "service_family": "SIB",
+    "status": "resolved",
+    "symptom": "I (<PERSON>, emp ID <EMP_ID>) on Windows 10 Enterprise 21H2 was trying to install FinanceApp v2.1 from Software Center on my workstation <HOSTNAME>, but the application was not visible on the device and installation attempts returned an end",
+    "resolution": null,
+    "article": "inc-sib-0004.md"
+  },
+  "INC-SIB-0005": {
+    "ticket_id": "INC-SIB-0005",
+    "title": "Software Center install blocked by Endpoint Protection policy",
+    "service_family": "SIB",
+    "status": "resolved",
+    "symptom": "I attempted to install the EditorX company application from Software Center on my managed Windows 10 21H2 device (<HOSTNAME>, IP <IP>), but the install failed immediately with \"Installer fails policy check\" and error 0x80070005. The applica",
+    "resolution": null,
+    "article": "inc-sib-0005.md"
+  },
+  "INC-SML-0003": {
+    "ticket_id": "INC-SML-0003",
+    "title": "Users experience MFA prompt loop during SSO (Okta/Azure AD)",
+    "service_family": "SML",
+    "status": "resolved",
+    "symptom": "Multiple external contractor users were trying to sign in through the SSO Portal (https://sso.corplabs.com) to access Salesforce and Office365, but after completing Okta MFA they were returned to the MFA challenge again instead of reaching ",
+    "resolution": null,
+    "article": "inc-sml-0003.md"
+  },
+  "INC-SML-0004": {
+    "ticket_id": "INC-SML-0004",
+    "title": "Users stuck in MFA prompt loop",
+    "service_family": "SML",
+    "status": "resolved",
+    "symptom": "Multiple remote employees in the <LOCATION> office were trying to sign in to corporate SaaS applications through the SSO Portal using Okta, but after completing authenticator-based MFA they were returned to repeated MFA prompts instead of r",
+    "resolution": null,
+    "article": "inc-sml-0004.md"
+  },
+  "INC-SML-0005": {
+    "ticket_id": "INC-SML-0005",
+    "title": "blocked by repeated MFA prompt and SSO sign-in rejected",
+    "service_family": "SML",
+    "status": "resolved",
+    "symptom": "I was trying to sign in to the company SSO portal at https://sso.corplabs.com through Okta to reach multiple SaaS applications including Office365, Salesforce, and Concur from my workstation <HOSTNAME> at IP <IP>. Instead of completing sign",
+    "resolution": null,
+    "article": "inc-sml-0005.md"
+  },
+  "INC-VDA-0003": {
+    "ticket_id": "INC-VDA-0003",
+    "title": "GlobalProtect VPN disconnects immediately",
+    "service_family": "VDA",
+    "status": "resolved",
+    "symptom": "Remote users on managed Windows 10 laptops were trying to connect to the corporate network through GlobalProtect VPN from multiple offices. After approving the Okta MFA prompt, the VPN tunnel established briefly and then disconnected within",
+    "resolution": null,
+    "article": "inc-vda-0003.md"
+  },
+  "INC-VDA-0004": {
+    "ticket_id": "INC-VDA-0004",
+    "title": "GlobalProtect disconnects shortly",
+    "service_family": "VDA",
+    "status": "resolved",
+    "symptom": "I was trying to connect to the corporate GlobalProtect VPN from my managed Windows 10 laptop (<HOSTNAME>, IP <IP>) in the <LOCATION> office. After approving the Okta MFA push under my account <EMAIL>, the VPN tunnel connected briefly and th",
+    "resolution": null,
+    "article": "inc-vda-0004.md"
+  },
+  "INC-VDA-0005": {
+    "ticket_id": "INC-VDA-0005",
+    "title": "VPN disconnects immediately",
+    "service_family": "VDA",
+    "status": "resolved",
+    "symptom": "I was trying to connect to the corporate GlobalProtect VPN from my managed Windows 10 laptop (<HOSTNAME>) at the <LOCATION> office. My username is <USER> and after approving the Okta MFA push notification, the VPN session established briefl",
+    "resolution": null,
+    "article": "inc-vda-0005.md"
+  },
+  "INC-WCI-0003": {
+    "ticket_id": "INC-WCI-0003",
+    "title": "Multiple users cannot connect to Corporate Wi-Fi",
+    "service_family": "WCI",
+    "status": "resolved",
+    "symptom": "Multiple corporate users at the <LOCATION> office were trying to join the corp-employee SSID on managed devices, but after the overnight certificate rotation window (scheduled 2026-04-24T02:00Z) they either failed 802.1X authentication, dis",
+    "resolution": null,
+    "article": "inc-wci-0003.md"
+  },
+  "INC-WCI-0004": {
+    "ticket_id": "INC-WCI-0004",
+    "title": "Finance users unable to join Corporate Wi-Fi \u2014 certificate authentication failures (escalated)",
+    "service_family": "WCI",
+    "status": "resolved",
+    "symptom": "Multiple Finance users on Windows 10 laptops in the <LOCATION> office were unable to join the Corporate Wi-Fi starting around 07:30 on April 25. The issue was first reported by <PERSON> (<EMP_ID>) and subsequently confirmed by at least four",
+    "resolution": null,
+    "article": "inc-wci-0004.md"
+  },
+  "INC-WCI-0006": {
+    "ticket_id": "INC-WCI-0006",
+    "title": "Users cannot connect to Corporate Wi-Fi",
+    "service_family": "WCI",
+    "status": "resolved",
+    "symptom": "Multiple managed corporate devices used by Sales users on the <LOCATION> US-East floor could not connect to the Corporate Wi-Fi SSID (CorpNet-Secure). Users selected the network but received immediate 802.1X/EAP authentication failures and ",
+    "resolution": null,
+    "article": "inc-wci-0006.md"
+  }
+}
