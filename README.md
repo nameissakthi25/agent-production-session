@@ -50,17 +50,53 @@ Each of those is a span under one root, so a refusal is attached to the request
 that caused it instead of sitting in a log file you have to correlate by
 timestamp.
 
-### Run it
+### Run it with Docker
+
+Two containers: the bot, and Phoenix for the traces.
 
 ```bash
-make install                      # venv + dependencies
-cp chatbot/.env.example chatbot/.env
-make phoenix                      # trace viewer on :6006  (Docker)
-make run                          # the bot on :8001
+cd chatbot
+cp .env.example .env          # then edit OPENAI_BASE_URL to point at your model
+docker compose up -d --build
 ```
 
-You also need a model. Point `OPENAI_BASE_URL` at whatever you have — a vLLM
-server from the notebook, or any other OpenAI-compatible endpoint.
+| | |
+|---|---|
+| Chatbot | http://localhost:8001 |
+| Traces | http://localhost:6006 |
+
+The image installs from `uv.lock`, so what runs in the container is the same
+resolution that ran on your machine. Measured on a first build: **55s**, **2.17GB**,
+and the app answers `200 text/html` about **3 seconds** after the container starts.
+
+**You still need a model.** `OPENAI_BASE_URL` must point at any
+OpenAI-compatible endpoint — the vLLM server from the notebook, or anything else
+that speaks the protocol. In `compose.yaml` it defaults to
+`http://host.docker.internal:8000/v1`, which is how a container reaches a server
+running on the host.
+
+> **Two Phoenix URLs, and they are not the same.** Inside the compose network
+> Phoenix is `http://phoenix:6006`; from your browser it is
+> `http://localhost:6006`. `PHOENIX_COLLECTOR_ENDPOINT` wants the first,
+> `PHOENIX_PUBLIC_URL` the second. Setting both to the same value is the most
+> common tracing-in-Docker mistake — one half silently stops working.
+
+Useful afterwards:
+
+```bash
+docker compose logs -f bot      # what the app is doing
+docker compose down             # stop both
+docker compose down -v          # ...and discard the traces
+```
+
+### Or run it on the host
+
+```bash
+make install                  # uv sync --frozen for both projects
+cp chatbot/.env.example chatbot/.env
+make phoenix                  # trace viewer on :6006 (Docker)
+make run                      # the bot on :8001, with hot reload
+```
 
 ```bash
 make test     # 26 tests, no model, no GPU
@@ -207,7 +243,11 @@ of your own users.
 On 2026-09-10, on macOS with Python 3.11:
 
 - `pip install -r requirements-dev.txt` resolves with no conflicts
-- 26/26 tests pass in ~2.9s (the NLP model load is most of it)
+- 26/26 tests pass from the lockfile (the spaCy model load is most of the time)
+- `docker compose up --build` builds in 55s to a 2.17GB image, and the app
+  answers `200 text/html` ~3s after the container starts
+- the Presidio guard refuses `I am Jane Doe from the Manchester office` **inside
+  the container**, not just on a laptop
 - the Guardrails AI + Presidio guard refuses two names the regex misses, and
   lets through one phone number the regex catches
 - Chainlit serves `text/html` on its port within ~4s of starting
