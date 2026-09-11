@@ -91,6 +91,85 @@ uv run ruff check .
 
 ---
 
+## CI — and how to set it up
+
+`.github/workflows/chatbot.yml`. Two jobs, and **no secrets to configure**:
+
+| Job | Time | What it gates |
+|---|---|---|
+| `test` | ~38s | `uv sync --frozen`, `ruff check`, `ruff format --check`, 26 tests |
+| `build` | ~3m | build from `uv.lock` → push to GHCR tagged with the commit SHA **and** `:main` → smoke-test the image |
+
+### Setting it up on your own fork
+
+1. **Copy the workflow file.** That is genuinely the whole setup.
+2. Check **Settings → Actions → General → Workflow permissions** allows
+   *"Read and write"*. The job asks for `packages: write`, and a job can only
+   request up to the repository's maximum.
+3. Push something under `chatbot/`.
+
+**There is nothing else.** `gh secret list` on this repo returns empty. The only
+credential used is `${{ secrets.GITHUB_TOKEN }}`, which GitHub mints per run,
+scopes to this repository, and expires when the job ends — you do not create it
+and you cannot leak it from a fork's pull request, because a fork's token is
+read-only.
+
+That is worth contrasting with the `deploy` job in the sibling
+`agent-deploy-session` repo, which needs a long-lived SSH private key in
+`GPU_SSH_KEY` plus a host and a pinned host key. **A pipeline that only builds
+needs no standing credentials; a pipeline that deploys needs one that outlives
+the run.** That difference is most of the security conversation about CD.
+
+### The path filter is part of the design
+
+```yaml
+paths:
+  - "chatbot/**"
+  - ".github/workflows/chatbot.yml"
+```
+
+A change to `rag/`, `agent/` or the notebook runs nothing. `rag/` and `agent/`
+share most of this code and all of its guards, so a second and third copy of
+this workflow would cost minutes per push and catch almost nothing new. Copy the
+file when they diverge enough to be worth gating.
+
+### What is deliberately absent
+
+**No `deploy` job and no `eval` job.** Both need a host on the other end. This
+repo has no fixed one — the GPU's IP changes on every resume — and a deploy step
+pointed at a stale IP goes red for reasons unrelated to your commit, after which
+people learn to ignore the pipeline.
+
+So this is **CI, not CD**. It ends at a tagged image in a registry; putting that
+image on a server is a separate decision. `agent-deploy-session` has the four-job
+version — `test → build → deploy → eval`, where `deploy` SSHes to the box,
+pulls the SHA tag and restarts one service, measured at **3m40s** from push to a
+scored deploy.
+
+### Two details that earn their place
+
+**`uv sync --frozen`**, not a plain `uv sync`: fail if `uv.lock` does not already
+satisfy `pyproject.toml`, rather than quietly resolving something new. CI
+resolving its own dependencies is CI testing a different program.
+
+**The last step smoke-tests the image, not the code.** It imports the guards
+*inside* the container and asserts the Presidio backend actually refuses a name.
+"It built" is not "it works" — this repo shipped a `compose.yaml` that pinned
+`GUARD_VALIDATOR=local` while this README described Presidio, and a build-only
+gate would have passed it.
+
+```bash
+gh run list --limit 5
+gh run watch --exit-status
+gh run view <id> --log-failed
+
+# the artefact, without pulling 2GB (and it is linux/amd64 only)
+docker buildx imagetools inspect \
+  ghcr.io/<you>/agent-production-session/chatbot:main
+```
+
+---
+
 ## Guardrails
 
 The default is **`GUARD_VALIDATOR=guardrails`** — a real Guardrails AI `Guard`,

@@ -59,6 +59,7 @@ boundary, so either one can be read, run or copied on its own.
 | Ports | 8001, 6006 | 8002, 6007, 6333 | 8003, 6008, 6335 |
 | Phoenix project | `chainlit-support-bot` | `rag-support-bot` | `agent-support-bot` |
 | Tests | 26 | 51 | 78 |
+| CI | **yes** — [how to set it up](chatbot/README.md#ci--and-how-to-set-it-up) | no, by choice | no, by choice |
 | Docs | [README](chatbot/README.md) | [README](rag/README.md) | [README](agent/README.md) |
 
 **Read them in that order.** The chatbot invents a password-reset portal because
