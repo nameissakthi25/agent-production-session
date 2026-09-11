@@ -14,7 +14,74 @@ That third row is the interesting one. The synthesizer writes prose from what
 the others found, so any tool call it attempts is by definition a bug or an
 attack — and either way the answer is the same: refuse it.
 
-One turn:
+## The flow
+
+```mermaid
+flowchart TD
+    Q(["question"]) --> IG{{"input_guard<br/><i>regex + Presidio NER</i>"}}
+    IG -->|passed| SUP["<b>supervisor</b><br/>picks ONE worker<br/><i>calls no tools itself</i>"]
+
+    SUP -->|"route = retriever"| RET["<b>retriever</b>"]
+    SUP -->|"route = tool_agent"| TA["<b>tool_agent</b>"]
+
+    RET --> TG{{"tool_guard<br/><i>allowlist, then arguments</i>"}}
+    TA --> TG
+
+    TG -->|"allowed"| T1["search_kb"]
+    TG -->|"allowed"| T2["lookup_ticket"]
+    TG -->|"allowed"| T3["check_service_status"]
+
+    T1 --> QD[("Qdrant<br/>256 chunks")]
+    T2 --> TJ[("tickets.json<br/>42 incidents")]
+    T3 --> SJ[("services.json<br/>6 services")]
+
+    QD --> NOTES["notes + citations"]
+    TJ --> NOTES
+    SJ --> NOTES
+
+    TG -->|"refused"| BACK["refusal returned<br/><b>as the tool result</b>"]
+    BACK -.->|"agent explains itself"| NOTES
+    NOTES -.->|"budget: 4 tool calls"| TG
+
+    NOTES --> SYN["<b>synthesizer</b><br/><i>NO tools, by allowlist</i>"]
+    SUP -.->|"route = synthesizer<br/>(skips the workers)"| SYN
+
+    SYN --> OG{{"output_guard<br/><i>empty, leak, invented PII</i>"}}
+    OG -->|passed| A(["answer + sources + 👍/👎"])
+
+    IG -->|refused| RX["refusal, with the reason<br/><i>no worker ran,<br/>no tool called</i>"]
+    OG -->|refused| RY["answer withheld"]
+
+    classDef guard fill:#F7EBD6,stroke:#8A5608,stroke-width:2px,color:#3a2a06
+    classDef agent fill:#DDEAF3,stroke:#1B5C87,stroke-width:2px,color:#0d2b40
+    classDef store fill:#DEEDE6,stroke:#1F6349,color:#0d2b1c
+    classDef stop  fill:#F8E3DF,stroke:#9C3325,color:#4a1710
+    classDef tool  fill:#FFFFFF,stroke:#53616E,color:#12171C
+
+    class IG,TG,OG guard
+    class SUP,RET,TA,SYN agent
+    class QD,TJ,SJ store
+    class RX,RY,BACK stop
+    class T1,T2,T3 tool
+```
+
+Three things the picture is making an argument about:
+
+**Guards sit between things, never inside them.** `input_guard` is before any
+worker exists, `tool_guard` is between an agent and the tool it asked for, and
+`output_guard` is before the user. A check that runs after the model has already
+acted is not a guardrail, it is a log entry.
+
+**The dotted line back from a refusal is the whole design.** A refused tool call
+does not raise, and does not end the run. The refusal is handed back **as the
+tool's result**, the agent reads it, and the answer explains what could not be
+checked. Compare that with a system that 500s because a model wrote `IT-1041`
+instead of `INC-VDA-0001`.
+
+**`tool_guard` is on the path of every arrow into a tool.** Not sampled, not
+"usually". Three tools, one gate, and `synthesizer` reaches none of them.
+
+One turn, in one line:
 
 ```
 input_guard → supervisor → worker (tool_guard per call) → synthesizer → output_guard
